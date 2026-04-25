@@ -121,7 +121,7 @@ final class AccessibilityService {
 
         let axValue = rawValue as! AXValue
         var rect = CGRect.zero
-        guard AXValueGetValue(axValue, .cgRect, &rect), !rect.isNull, !rect.isEmpty else {
+        guard AXValueGetValue(axValue, .cgRect, &rect), rect.isUsableCaretBounds else {
             return nil
         }
 
@@ -153,5 +153,17 @@ final class AccessibilityService {
         }
 
         return value as? T
+    }
+}
+
+private extension CGRect {
+    var isUsableCaretBounds: Bool {
+        !isNull &&
+            origin.x.isFinite &&
+            origin.y.isFinite &&
+            width.isFinite &&
+            height.isFinite &&
+            width >= 0 &&
+            height > 0
     }
 }

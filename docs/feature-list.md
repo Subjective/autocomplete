@@ -167,7 +167,7 @@
 
 - [x] Compute caret position from Accessibility APIs
 - [x] Render ghost text overlay near caret
-- [ ] Match font size when possible
+- [x] Match font size when possible
 - [ ] Match line height when possible
 - [ ] Match text direction/layout when possible
 - [ ] Handle scrolling fields

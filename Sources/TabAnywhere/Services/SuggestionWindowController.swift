@@ -31,7 +31,13 @@ final class SuggestionWindowController {
         hotKey: String,
         near rect: CGRect?
     ) {
-        hostingView.rootView = SuggestionBubbleView(text: suggestion.text, style: style, hotKey: hotKey)
+        let caretHeight = max(rect?.height ?? 16, 1)
+        hostingView.rootView = SuggestionBubbleView(
+            text: suggestion.text,
+            style: style,
+            hotKey: hotKey,
+            caretHeight: caretHeight
+        )
         panel.hasShadow = style.hasShadow
 
         let preferredSize = hostingView.fittingSize
@@ -47,15 +53,12 @@ final class SuggestionWindowController {
     }
 
     private func anchorPoint(for rect: CGRect?, panelSize: NSSize, style: SuggestionPresentationStyle) -> NSPoint {
-        guard let rect, let screen = NSScreen.screen(containing: rect) ?? NSScreen.main else {
-            let mouse = NSEvent.mouseLocation
-            if style == .commandPalette, let screen = NSScreen.main {
-                return NSPoint(
-                    x: screen.visibleFrame.midX - panelSize.width / 2,
-                    y: screen.visibleFrame.maxY - panelSize.height - 84
-                )
-            }
-            return NSPoint(x: mouse.x + 14, y: mouse.y - panelSize.height - 14)
+        guard let rect else {
+            return fallbackPoint(panelSize: panelSize)
+        }
+
+        guard let screen = NSScreen.screen(containingAccessibilityRect: rect) ?? NSScreen.main else {
+            return fallbackPoint(panelSize: panelSize)
         }
 
         if style == .commandPalette {
@@ -65,23 +68,80 @@ final class SuggestionWindowController {
             )
         }
 
-        let horizontalOffset: CGFloat = style == .ghostText || style == .textOnly ? 2 : 8
-        let verticalOffset: CGFloat = style == .ghostText || style == .textOnly ? 0 : 6
-        let rawPoint = NSPoint(x: rect.maxX + horizontalOffset, y: rect.minY - panelSize.height - verticalOffset)
-        let flippedY = screen.frame.maxY - rect.maxY - panelSize.height - verticalOffset
-        let flippedPoint = NSPoint(x: rect.maxX + horizontalOffset, y: flippedY)
-        let candidate = screen.visibleFrame.contains(rawPoint) ? rawPoint : flippedPoint
+        let appKitRect = screen.appKitRect(fromAccessibilityRect: rect)
+        let candidate: NSPoint
+
+        if style == .ghostText || style == .textOnly {
+            candidate = NSPoint(
+                x: appKitRect.maxX + inlineHorizontalGap(for: appKitRect.height),
+                y: appKitRect.minY + (appKitRect.height - panelSize.height) / 2
+            )
+        } else {
+            let horizontalOffset = popupHorizontalGap(for: appKitRect.height)
+            let verticalOffset = popupVerticalGap(for: appKitRect.height)
+            candidate = NSPoint(
+                x: appKitRect.maxX + horizontalOffset,
+                y: appKitRect.minY - panelSize.height - verticalOffset
+            )
+        }
 
         let clampedX = min(max(candidate.x, screen.visibleFrame.minX + 8), screen.visibleFrame.maxX - panelSize.width - 8)
         let clampedY = min(max(candidate.y, screen.visibleFrame.minY + 8), screen.visibleFrame.maxY - panelSize.height - 8)
         return NSPoint(x: clampedX, y: clampedY)
     }
+
+    private func fallbackPoint(panelSize: NSSize) -> NSPoint {
+        guard let screen = NSScreen.main else {
+            return NSPoint.zero
+        }
+
+        return NSPoint(
+            x: screen.visibleFrame.midX - panelSize.width / 2,
+            y: screen.visibleFrame.maxY - panelSize.height - 84
+        )
+    }
+
+    private func inlineHorizontalGap(for caretHeight: CGFloat) -> CGFloat {
+        min(max(caretHeight * 0.06, 0), 2)
+    }
+
+    private func popupHorizontalGap(for caretHeight: CGFloat) -> CGFloat {
+        min(max(caretHeight * 0.28, 4), 10)
+    }
+
+    private func popupVerticalGap(for caretHeight: CGFloat) -> CGFloat {
+        min(max(caretHeight * 0.22, 3), 9)
+    }
 }
 
 private extension NSScreen {
-    static func screen(containing rect: CGRect) -> NSScreen? {
+    static func screen(containingAccessibilityRect rect: CGRect) -> NSScreen? {
         screens.first { screen in
-            screen.frame.intersects(rect) || screen.frame.contains(NSPoint(x: rect.midX, y: rect.midY))
+            screen.accessibilityFrame.intersects(rect) ||
+                screen.accessibilityFrame.contains(NSPoint(x: rect.midX, y: rect.midY))
         }
+    }
+
+    var accessibilityFrame: CGRect {
+        guard let mainFrame = NSScreen.main?.frame else {
+            return frame
+        }
+
+        return CGRect(
+            x: frame.minX,
+            y: mainFrame.maxY - frame.maxY,
+            width: frame.width,
+            height: frame.height
+        )
+    }
+
+    func appKitRect(fromAccessibilityRect rect: CGRect) -> CGRect {
+        let yWithinScreen = rect.minY - accessibilityFrame.minY
+        return CGRect(
+            x: rect.minX,
+            y: frame.maxY - yWithinScreen - rect.height,
+            width: rect.width,
+            height: rect.height
+        )
     }
 }

@@ -64,7 +64,7 @@ enum SuggestionPresentationStyle: String, CaseIterable, Identifiable {
     var minWidth: CGFloat {
         switch self {
         case .ghostText, .textOnly:
-            return 180
+            return 8
         case .compactChip:
             return 260
         case .commandPalette:
@@ -90,7 +90,7 @@ enum SuggestionPresentationStyle: String, CaseIterable, Identifiable {
         case .commandPalette:
             return 54
         case .ghostText, .textOnly:
-            return 24
+            return 8
         default:
             return 38
         }
