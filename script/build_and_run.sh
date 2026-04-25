@@ -52,6 +52,11 @@ cat >"$INFO_PLIST" <<PLIST
 </plist>
 PLIST
 
+if [ -d "$APP_MACOS/llama.framework" ]; then
+  /usr/bin/codesign --force --sign - "$APP_MACOS/llama.framework"
+fi
+/usr/bin/codesign --force --deep --sign - "$APP_BUNDLE"
+
 open_app() {
   /usr/bin/open -n "$APP_BUNDLE"
 }
