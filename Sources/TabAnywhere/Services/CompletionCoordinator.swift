@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import Foundation
+import UniformTypeIdentifiers
 
 final class CompletionCoordinator: ObservableObject {
     @Published var isEnabled = true
@@ -9,11 +10,25 @@ final class CompletionCoordinator: ObservableObject {
     @Published var activeSuggestionText = ""
     @Published var statusMessage = "Waiting for Accessibility permission"
     @Published var recentEvents: [String] = []
+    @Published var selectedProviderKind: CompletionProviderKind
+    @Published var modelSearchQuery: String
+    @Published var selectedModelID: String
+    @Published var selectedGGUFFile: String
+    @Published var localModelPath: String
+    @Published var cloudBaseURL: String
+    @Published var cloudAPIKey: String
+    @Published var cloudModelID: String
+    @Published private(set) var modelSearchResults: [ModelSearchResult] = []
+    @Published private(set) var modelStatusMessage = "Mock provider selected"
+    @Published private(set) var isSearchingModels = false
+    @Published private(set) var isDownloadingModel = false
+    @Published private(set) var modelDownloadProgress = 0.0
     @Published private(set) var acceptanceHotKey: AcceptanceHotKey
     @Published private(set) var suggestionStyle: SuggestionPresentationStyle
 
     private let accessibility = AccessibilityService()
-    private let provider: CompletionProviding = MockCompletionProvider()
+    private let mockProvider: CompletionProviding = MockCompletionProvider()
+    private let modelCatalog = ModelCatalogService()
     private let insertion = TextInsertionService()
     private let hotKeyManager = HotKeyManager()
     private let suggestionWindow = SuggestionWindowController()
@@ -21,8 +36,14 @@ final class CompletionCoordinator: ObservableObject {
     private var globalKeyMonitor: Any?
     private var localKeyMonitor: Any?
     private var debounceWorkItem: DispatchWorkItem?
+    private var generationTask: Task<Void, Never>?
+    private var modelSearchTask: Task<Void, Never>?
+    private var modelDownloadTask: Task<Void, Never>?
     private var activeSuggestion: CompletionSuggestion?
     private var activeContext: CompletionContext?
+    private var cachedProviderConfiguration: AnyLanguageModelProviderConfiguration?
+    private var cachedAnyProvider: AnyLanguageModelCompletionProvider?
+    private var generationRequestID = 0
     private var didStart = false
 
     var acceptanceHotKeyDescription: String {
@@ -33,11 +54,36 @@ final class CompletionCoordinator: ObservableObject {
         suggestionStyle.title
     }
 
+    var providerDescription: String {
+        selectedProviderKind.title
+    }
+
+    var selectedModelDescription: String {
+        switch selectedProviderKind {
+        case .mock:
+            "Mock deterministic"
+        case .localLlama:
+            localModelPath.isEmpty ? "\(selectedModelID) / \(selectedGGUFFile)" : URL(fileURLWithPath: localModelPath).lastPathComponent
+        case .huggingFaceRouter, .gemini, .openAICompatible:
+            cloudModelID
+        }
+    }
+
     init() {
         let storedValue = UserDefaults.standard.string(forKey: "AcceptanceHotKey") ?? AcceptanceHotKey.optionTab.rawValue
         acceptanceHotKey = AcceptanceHotKey(rawValue: storedValue) ?? .optionTab
         let storedStyle = UserDefaults.standard.string(forKey: "SuggestionStyle") ?? SuggestionPresentationStyle.ghostText.rawValue
         suggestionStyle = SuggestionPresentationStyle(rawValue: storedStyle) ?? .ghostText
+        let storedProvider = UserDefaults.standard.string(forKey: "CompletionProviderKind") ?? CompletionProviderKind.mock.rawValue
+        selectedProviderKind = CompletionProviderKind(rawValue: storedProvider) ?? .mock
+        modelSearchQuery = UserDefaults.standard.string(forKey: "ModelSearchQuery") ?? "gemma 4 gguf"
+        selectedModelID = UserDefaults.standard.string(forKey: "SelectedModelID") ?? "ggml-org/gemma-4-E2B-it-GGUF"
+        selectedGGUFFile = UserDefaults.standard.string(forKey: "SelectedGGUFFile") ?? ""
+        localModelPath = UserDefaults.standard.string(forKey: "LocalModelPath") ?? ""
+        cloudBaseURL = UserDefaults.standard.string(forKey: "CloudBaseURL") ?? "https://router.huggingface.co/v1"
+        cloudAPIKey = UserDefaults.standard.string(forKey: "CloudAPIKey") ?? ""
+        cloudModelID = UserDefaults.standard.string(forKey: "CloudModelID") ?? CompletionProviderKind.huggingFaceRouter.defaultCloudModelID ?? ""
+        updateModelStatus()
     }
 
     deinit {
@@ -62,6 +108,9 @@ final class CompletionCoordinator: ObservableObject {
 
     func stop() {
         debounceWorkItem?.cancel()
+        generationTask?.cancel()
+        modelSearchTask?.cancel()
+        modelDownloadTask?.cancel()
         hotKeyManager.unregister()
         suggestionWindow.hide()
 
@@ -111,22 +160,64 @@ final class CompletionCoordinator: ObservableObject {
             "\(context.appName) - \($0) (\(context.role))"
         } ?? "\(context.appName) (\(context.role))"
 
-        guard isEnabled, let suggestion = provider.suggestion(for: context), !suggestion.text.isEmpty else {
+        guard isEnabled else {
             clearSuggestion(reason: "No suggestion for current context")
             return
         }
 
         activeContext = context
-        activeSuggestion = suggestion
-        activeSuggestionText = suggestion.text
-        suggestionWindow.show(
-            suggestion,
-            style: suggestionStyle,
-            hotKey: acceptanceHotKeyDescription,
-            near: context.caretBounds
-        )
-        statusMessage = "Suggestion ready in \(suggestion.contextSummary)"
-        log("Suggested \(suggestion.text)")
+        activeSuggestion = nil
+        activeSuggestionText = ""
+        suggestionWindow.hide()
+        statusMessage = "Generating with \(providerDescription)..."
+
+        let requestID = generationRequestID + 1
+        generationRequestID = requestID
+        generationTask?.cancel()
+        generationTask = Task { [weak self, context, requestID] in
+            guard let self else {
+                return
+            }
+
+            do {
+                let provider = self.makeCompletionProvider()
+                let suggestion = try await provider.suggestion(for: context)
+
+                await MainActor.run {
+                    guard self.generationRequestID == requestID, !Task.isCancelled else {
+                        return
+                    }
+
+                    guard let suggestion, !suggestion.text.isEmpty else {
+                        self.clearSuggestion(reason: "No suggestion for current context")
+                        return
+                    }
+
+                    self.activeContext = context
+                    self.activeSuggestion = suggestion
+                    self.activeSuggestionText = suggestion.text
+                    self.suggestionWindow.show(
+                        suggestion,
+                        style: self.suggestionStyle,
+                        hotKey: self.acceptanceHotKeyDescription,
+                        near: context.caretBounds
+                    )
+                    self.statusMessage = "Suggestion ready in \(suggestion.contextSummary)"
+                    self.log("Suggested \(suggestion.text)")
+                }
+            } catch {
+                await MainActor.run {
+                    guard self.generationRequestID == requestID, !Task.isCancelled else {
+                        return
+                    }
+
+                    let reason = "Provider unavailable: \(error.localizedDescription)"
+                    self.modelStatusMessage = reason
+                    self.clearSuggestion(reason: reason)
+                    return
+                }
+            }
+        }
     }
 
     func acceptActiveSuggestion() {
@@ -175,6 +266,152 @@ final class CompletionCoordinator: ObservableObject {
                 hotKey: acceptanceHotKeyDescription,
                 near: activeContext.caretBounds
             )
+        }
+    }
+
+    func setProviderKind(_ provider: CompletionProviderKind) {
+        selectedProviderKind = provider
+        UserDefaults.standard.set(provider.rawValue, forKey: "CompletionProviderKind")
+        if shouldReplaceCloudModelForProviderSwitch(to: provider), let defaultModelID = provider.defaultCloudModelID {
+            setCloudModelID(defaultModelID)
+        }
+        invalidateCompletionProvider()
+        updateModelStatus()
+        clearSuggestion(reason: "Selected \(provider.title) provider")
+    }
+
+    func setModelSearchQuery(_ query: String) {
+        modelSearchQuery = query
+        UserDefaults.standard.set(query, forKey: "ModelSearchQuery")
+    }
+
+    func setSelectedModelID(_ modelID: String) {
+        selectedModelID = modelID
+        UserDefaults.standard.set(modelID, forKey: "SelectedModelID")
+        updateModelStatus()
+    }
+
+    func setSelectedGGUFFile(_ file: String) {
+        selectedGGUFFile = file
+        UserDefaults.standard.set(file, forKey: "SelectedGGUFFile")
+        updateModelStatus()
+    }
+
+    func setLocalModelPath(_ path: String) {
+        localModelPath = path
+        UserDefaults.standard.set(path, forKey: "LocalModelPath")
+        invalidateCompletionProvider()
+        updateModelStatus()
+    }
+
+    func setCloudBaseURL(_ baseURL: String) {
+        cloudBaseURL = baseURL
+        UserDefaults.standard.set(baseURL, forKey: "CloudBaseURL")
+        invalidateCompletionProvider()
+        updateModelStatus()
+    }
+
+    func setCloudAPIKey(_ apiKey: String) {
+        cloudAPIKey = apiKey
+        UserDefaults.standard.set(apiKey, forKey: "CloudAPIKey")
+        invalidateCompletionProvider()
+        updateModelStatus()
+    }
+
+    func setCloudModelID(_ modelID: String) {
+        cloudModelID = modelID
+        UserDefaults.standard.set(modelID, forKey: "CloudModelID")
+        invalidateCompletionProvider()
+        updateModelStatus()
+    }
+
+    func searchModels() {
+        modelSearchTask?.cancel()
+        isSearchingModels = true
+        modelStatusMessage = "Searching Hugging Face..."
+
+        modelSearchTask = Task { [weak self] in
+            guard let self else {
+                return
+            }
+
+            do {
+                let results = try await self.modelCatalog.searchGGUFModels(query: self.modelSearchQuery)
+                await MainActor.run {
+                    self.modelSearchResults = results
+                    self.isSearchingModels = false
+                    self.modelStatusMessage = results.isEmpty ? "No GGUF models found" : "Found \(results.count) model\(results.count == 1 ? "" : "s")"
+                }
+            } catch {
+                await MainActor.run {
+                    self.isSearchingModels = false
+                    self.modelStatusMessage = "Model search failed: \(error.localizedDescription)"
+                }
+            }
+        }
+    }
+
+    func selectModelSearchResult(_ result: ModelSearchResult) {
+        setSelectedModelID(result.id)
+        if let firstFile = preferredGGUFFile(from: result.ggufFiles) {
+            setSelectedGGUFFile(firstFile.path)
+        }
+        modelStatusMessage = "Selected \(result.id)"
+    }
+
+    func downloadSelectedModel() {
+        guard !selectedModelID.isEmpty, !selectedGGUFFile.isEmpty else {
+            modelStatusMessage = "Select a GGUF file before downloading"
+            return
+        }
+
+        modelDownloadTask?.cancel()
+        isDownloadingModel = true
+        modelDownloadProgress = 0
+        modelStatusMessage = "Downloading \(selectedGGUFFile)..."
+
+        modelDownloadTask = Task { [weak self] in
+            guard let self else {
+                return
+            }
+
+            do {
+                let url = try await self.modelCatalog.downloadGGUF(
+                    modelID: self.selectedModelID,
+                    filePath: self.selectedGGUFFile
+                ) { progress in
+                    self.modelDownloadProgress = progress.fractionCompleted.isFinite ? progress.fractionCompleted : 0
+                }
+
+                await MainActor.run {
+                    self.isDownloadingModel = false
+                    self.modelDownloadProgress = 1
+                    self.setLocalModelPath(url.path)
+                    self.modelStatusMessage = "Downloaded \(url.lastPathComponent)"
+                }
+            } catch {
+                await MainActor.run {
+                    self.isDownloadingModel = false
+                    self.modelStatusMessage = "Download failed: \(error.localizedDescription)"
+                }
+            }
+        }
+    }
+
+    func chooseLocalModelFile() {
+        let panel = NSOpenPanel()
+        if let ggufType = UTType(filenameExtension: "gguf") {
+            panel.allowedContentTypes = [ggufType]
+        }
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.nameFieldStringValue = "Model GGUF"
+        panel.begin { [weak self] response in
+            guard response == .OK, let url = panel.url else {
+                return
+            }
+            self?.setLocalModelPath(url.path)
         }
     }
 
@@ -241,6 +478,8 @@ final class CompletionCoordinator: ObservableObject {
     }
 
     private func clearSuggestion(reason: String, shouldLog: Bool = true) {
+        generationRequestID += 1
+        generationTask?.cancel()
         activeSuggestion = nil
         activeContext = nil
         activeSuggestionText = ""
@@ -256,6 +495,73 @@ final class CompletionCoordinator: ObservableObject {
         let timestamp = DateFormatter.tabAnywhereTime.string(from: Date())
         recentEvents.insert("[\(timestamp)] \(message)", at: 0)
         recentEvents = Array(recentEvents.prefix(8))
+    }
+
+    private func makeCompletionProvider() -> CompletionProviding {
+        switch selectedProviderKind {
+        case .mock:
+            return mockProvider
+        case .localLlama, .huggingFaceRouter, .gemini, .openAICompatible:
+            let configuration = AnyLanguageModelProviderConfiguration(
+                kind: selectedProviderKind,
+                localModelPath: localModelPath,
+                cloudBaseURL: selectedProviderKind == .huggingFaceRouter ? "https://router.huggingface.co/v1" : cloudBaseURL,
+                cloudAPIKey: cloudAPIKey,
+                cloudModelID: cloudModelID
+            )
+
+            if cachedProviderConfiguration == configuration, let cachedAnyProvider {
+                return cachedAnyProvider
+            }
+
+            let provider = AnyLanguageModelCompletionProvider(configuration: configuration)
+            cachedProviderConfiguration = configuration
+            cachedAnyProvider = provider
+            return provider
+        }
+    }
+
+    private func invalidateCompletionProvider() {
+        cachedProviderConfiguration = nil
+        cachedAnyProvider = nil
+    }
+
+    private func shouldReplaceCloudModelForProviderSwitch(to provider: CompletionProviderKind) -> Bool {
+        guard provider.defaultCloudModelID != nil else {
+            return false
+        }
+
+        let appProvidedDefaults = CompletionProviderKind.allCases.compactMap(\.defaultCloudModelID) + ["gemini-2.5-flash"]
+        return cloudModelID.isEmpty || appProvidedDefaults.contains(cloudModelID)
+    }
+
+    private func updateModelStatus() {
+        switch selectedProviderKind {
+        case .mock:
+            modelStatusMessage = "Mock provider selected"
+        case .localLlama:
+            modelStatusMessage = localModelPath.isEmpty
+                ? "Download or choose a GGUF model"
+                : "Local model ready: \(URL(fileURLWithPath: localModelPath).lastPathComponent)"
+        case .huggingFaceRouter:
+            modelStatusMessage = cloudAPIKey.isEmpty
+                ? "Add a Hugging Face token to use the router"
+                : "Router model ready: \(cloudModelID)"
+        case .gemini:
+            modelStatusMessage = cloudAPIKey.isEmpty
+                ? "Add a Google AI Studio API key to use Gemini"
+                : "Gemini model ready: \(cloudModelID)"
+        case .openAICompatible:
+            modelStatusMessage = cloudAPIKey.isEmpty
+                ? "Add an API key to use the endpoint"
+                : "Cloud model ready: \(cloudModelID)"
+        }
+    }
+
+    private func preferredGGUFFile(from files: [GGUFFile]) -> GGUFFile? {
+        files.first { $0.name.localizedCaseInsensitiveContains("q4") }
+            ?? files.first { $0.name.localizedCaseInsensitiveContains("Q4") }
+            ?? files.first
     }
 }
 

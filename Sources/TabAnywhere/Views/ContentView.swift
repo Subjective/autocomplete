@@ -11,7 +11,7 @@ struct ContentView: View {
                 Section("Status") {
                     Label("MVP Loop", systemImage: "text.cursor")
                     Label("Permissions", systemImage: coordinator.hasAccessibilityPermission ? "checkmark.circle" : "exclamationmark.triangle")
-                    Label("Mock Provider", systemImage: "wand.and.stars")
+                    Label(coordinator.providerDescription, systemImage: "cpu")
                 }
 
                 Section("Targets") {
@@ -27,6 +27,7 @@ struct ContentView: View {
                 VStack(alignment: .leading, spacing: 18) {
                     statusSection
                     styleLabSection
+                    modelSection
                     nativeTestSection
                     eventSection
                 }
@@ -63,6 +64,8 @@ struct ContentView: View {
             LabeledContent("Focused field", value: coordinator.focusedAppDescription)
             LabeledContent("Accept hotkey", value: coordinator.acceptanceHotKeyDescription)
             LabeledContent("Suggestion style", value: coordinator.suggestionStyleDescription)
+            LabeledContent("Provider", value: coordinator.providerDescription)
+            LabeledContent("Model", value: coordinator.selectedModelDescription)
             LabeledContent("Active suggestion", value: coordinator.activeSuggestionText.isEmpty ? "None" : coordinator.activeSuggestionText)
 
             HStack {
@@ -141,6 +144,16 @@ struct ContentView: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(.separator.opacity(0.7), lineWidth: 1)
         }
+    }
+
+    private var modelSection: some View {
+        ModelManagementSection(coordinator: coordinator)
+            .padding(18)
+            .background(.background, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(.separator.opacity(0.7), lineWidth: 1)
+            }
     }
 
     private var eventSection: some View {

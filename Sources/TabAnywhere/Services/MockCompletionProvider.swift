@@ -1,11 +1,11 @@
 import Foundation
 
 protocol CompletionProviding {
-    func suggestion(for context: CompletionContext) -> CompletionSuggestion?
+    func suggestion(for context: CompletionContext) async throws -> CompletionSuggestion?
 }
 
 struct MockCompletionProvider: CompletionProviding {
-    func suggestion(for context: CompletionContext) -> CompletionSuggestion? {
+    func suggestion(for context: CompletionContext) async throws -> CompletionSuggestion? {
         let prefix = context.prefix
         let trimmed = prefix.trimmingCharacters(in: .whitespacesAndNewlines)
 

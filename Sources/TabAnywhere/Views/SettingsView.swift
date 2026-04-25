@@ -13,7 +13,8 @@ struct SettingsView: View {
 
                 LabeledContent("Accept suggestion", value: coordinator.acceptanceHotKeyDescription)
                 LabeledContent("Suggestion style", value: coordinator.suggestionStyleDescription)
-                LabeledContent("Provider", value: "Mock deterministic")
+                LabeledContent("Provider", value: coordinator.providerDescription)
+                LabeledContent("Model", value: coordinator.selectedModelDescription)
 
                 Picker("Hotkey", selection: Binding(
                     get: { coordinator.acceptanceHotKey },
@@ -33,6 +34,10 @@ struct SettingsView: View {
                         Text(style.title).tag(style)
                     }
                 }
+            }
+
+            Section {
+                ModelManagementSection(coordinator: coordinator, isCompact: true)
             }
 
             Section("Permissions") {

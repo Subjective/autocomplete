@@ -136,10 +136,10 @@
 
 ## 10. Local Model Runtime
 
-- [ ] Choose first runtime: MLX, llama.cpp, or both
+- [x] Choose first runtime: MLX, llama.cpp, or both
 - [ ] Package small local model
-- [ ] Add model download manager
-- [ ] Add model quantization support
+- [x] Add model download manager
+- [x] Add model quantization support
 - [ ] Add model warmup
 - [ ] Keep inference worker alive in background
 - [ ] Stream partial predictions internally
@@ -147,12 +147,12 @@
 - [ ] Add memory usage instrumentation
 - [ ] Add battery/thermal guardrails
 - [ ] Add “local only” mode
-- [ ] Add optional cloud inference mode later
+- [x] Add optional cloud inference mode later
 - [ ] Add model versioning
 
 ## 11. Prompting / Model Interface
 
-- [ ] Define prompt format for text-only completions
+- [x] Define prompt format for text-only completions
 - [ ] Define prompt format for screenshot-aware completions
 - [x] Define output schema
 - [x] Support plain inline continuation
@@ -235,8 +235,8 @@
 - [x] Enable/disable completions globally
 - [ ] Enable/disable screenshot memory
 - [x] Configure hotkeys
-- [ ] Configure model
-- [ ] Configure local/cloud mode
+- [x] Configure model
+- [x] Configure local/cloud mode
 - [ ] Configure capture frequency
 - [ ] Configure app allowlist/denylist
 - [ ] Configure browser domain denylist
