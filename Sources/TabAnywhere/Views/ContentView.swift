@@ -26,6 +26,7 @@ struct ContentView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     statusSection
+                    styleLabSection
                     nativeTestSection
                     eventSection
                 }
@@ -61,6 +62,7 @@ struct ContentView: View {
 
             LabeledContent("Focused field", value: coordinator.focusedAppDescription)
             LabeledContent("Accept hotkey", value: coordinator.acceptanceHotKeyDescription)
+            LabeledContent("Suggestion style", value: coordinator.suggestionStyleDescription)
             LabeledContent("Active suggestion", value: coordinator.activeSuggestionText.isEmpty ? "None" : coordinator.activeSuggestionText)
 
             HStack {
@@ -80,6 +82,32 @@ struct ContentView: View {
                     coordinator.refreshFocusedContextNow()
                 } label: {
                     Label("Inspect Focus", systemImage: "scope")
+                }
+            }
+        }
+        .padding(18)
+        .background(.background, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(.separator.opacity(0.7), lineWidth: 1)
+        }
+    }
+
+    private var styleLabSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Style Lab")
+                .font(.headline)
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 250), spacing: 12)], spacing: 12) {
+                ForEach(SuggestionPresentationStyle.allCases) { style in
+                    SuggestionStylePreviewCard(
+                        style: style,
+                        hotKey: coordinator.acceptanceHotKeyDescription,
+                        isSelected: style == coordinator.suggestionStyle,
+                        selectAction: {
+                            coordinator.setSuggestionStyle(style)
+                        }
+                    )
                 }
             }
         }
@@ -137,5 +165,62 @@ struct ContentView: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(.separator.opacity(0.7), lineWidth: 1)
         }
+    }
+}
+
+private struct SuggestionStylePreviewCard: View {
+    let style: SuggestionPresentationStyle
+    let hotKey: String
+    let isSelected: Bool
+    let selectAction: () -> Void
+
+    var body: some View {
+        Button(action: selectAction) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: style.systemImage)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 18)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(style.title)
+                            .font(.subheadline.weight(.semibold))
+                        Text(style.summary)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+
+                    Spacer(minLength: 0)
+
+                    if isSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.tint)
+                    }
+                }
+
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(.quaternary.opacity(0.45))
+
+                    SuggestionBubbleView(
+                        text: " — completed by TabAnywhere.",
+                        style: style,
+                        hotKey: hotKey
+                    )
+                    .padding(10)
+                }
+                .frame(height: style == .commandPalette ? 78 : 64)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(isSelected ? Color.accentColor.opacity(0.85) : Color.secondary.opacity(0.2), lineWidth: isSelected ? 1.5 : 1)
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(isSelected)
     }
 }

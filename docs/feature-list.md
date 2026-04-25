@@ -176,7 +176,7 @@
 - [x] Hide suggestion when user types incompatible text
 - [x] Hide suggestion on focus loss
 - [x] Add anchored popover fallback
-- [ ] Add command palette/manual fallback
+- [x] Add command palette/manual fallback
 - [ ] Add per-app rendering strategy
 
 ## 13. Suggestion Acceptance
@@ -243,7 +243,7 @@
 - [ ] Configure retention period
 - [ ] Configure suggestion aggressiveness
 - [ ] Configure max suggestion length
-- [ ] Configure style/tone preferences
+- [x] Configure style/tone preferences
 - [ ] Configure launch at login
 
 ## 17. Observability & Debugging

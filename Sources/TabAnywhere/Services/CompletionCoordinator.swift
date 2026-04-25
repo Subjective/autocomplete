@@ -10,6 +10,7 @@ final class CompletionCoordinator: ObservableObject {
     @Published var statusMessage = "Waiting for Accessibility permission"
     @Published var recentEvents: [String] = []
     @Published private(set) var acceptanceHotKey: AcceptanceHotKey
+    @Published private(set) var suggestionStyle: SuggestionPresentationStyle
 
     private let accessibility = AccessibilityService()
     private let provider: CompletionProviding = MockCompletionProvider()
@@ -28,9 +29,15 @@ final class CompletionCoordinator: ObservableObject {
         acceptanceHotKey.label
     }
 
+    var suggestionStyleDescription: String {
+        suggestionStyle.title
+    }
+
     init() {
         let storedValue = UserDefaults.standard.string(forKey: "AcceptanceHotKey") ?? AcceptanceHotKey.optionTab.rawValue
         acceptanceHotKey = AcceptanceHotKey(rawValue: storedValue) ?? .optionTab
+        let storedStyle = UserDefaults.standard.string(forKey: "SuggestionStyle") ?? SuggestionPresentationStyle.ghostText.rawValue
+        suggestionStyle = SuggestionPresentationStyle(rawValue: storedStyle) ?? .ghostText
     }
 
     deinit {
@@ -112,7 +119,12 @@ final class CompletionCoordinator: ObservableObject {
         activeContext = context
         activeSuggestion = suggestion
         activeSuggestionText = suggestion.text
-        suggestionWindow.show(suggestion, near: context.caretBounds)
+        suggestionWindow.show(
+            suggestion,
+            style: suggestionStyle,
+            hotKey: acceptanceHotKeyDescription,
+            near: context.caretBounds
+        )
         statusMessage = "Suggestion ready in \(suggestion.contextSummary)"
         log("Suggested \(suggestion.text)")
     }
@@ -149,6 +161,36 @@ final class CompletionCoordinator: ObservableObject {
         UserDefaults.standard.set(hotKey.rawValue, forKey: "AcceptanceHotKey")
         hotKeyManager.register(hotKey)
         log("Registered \(hotKey.label) accept hotkey")
+    }
+
+    func setSuggestionStyle(_ style: SuggestionPresentationStyle) {
+        suggestionStyle = style
+        UserDefaults.standard.set(style.rawValue, forKey: "SuggestionStyle")
+        log("Selected \(style.title) suggestion style")
+
+        if let activeSuggestion, let activeContext {
+            suggestionWindow.show(
+                activeSuggestion,
+                style: style,
+                hotKey: acceptanceHotKeyDescription,
+                near: activeContext.caretBounds
+            )
+        }
+    }
+
+    func previewSuggestionStyle(_ style: SuggestionPresentationStyle) {
+        let suggestion = CompletionSuggestion(
+            text: " — completed by TabAnywhere.",
+            contextSummary: "Style Preview"
+        )
+        suggestionWindow.show(
+            suggestion,
+            style: style,
+            hotKey: acceptanceHotKeyDescription,
+            near: nil
+        )
+        statusMessage = "Previewing \(style.title)"
+        log("Previewed \(style.title) style")
     }
 
     private func installEventMonitors() {

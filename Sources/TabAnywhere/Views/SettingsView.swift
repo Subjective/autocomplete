@@ -12,6 +12,7 @@ struct SettingsView: View {
                 ))
 
                 LabeledContent("Accept suggestion", value: coordinator.acceptanceHotKeyDescription)
+                LabeledContent("Suggestion style", value: coordinator.suggestionStyleDescription)
                 LabeledContent("Provider", value: "Mock deterministic")
 
                 Picker("Hotkey", selection: Binding(
@@ -23,6 +24,15 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.segmented)
+
+                Picker("Style", selection: Binding(
+                    get: { coordinator.suggestionStyle },
+                    set: { coordinator.setSuggestionStyle($0) }
+                )) {
+                    ForEach(SuggestionPresentationStyle.allCases) { style in
+                        Text(style.title).tag(style)
+                    }
+                }
             }
 
             Section("Permissions") {

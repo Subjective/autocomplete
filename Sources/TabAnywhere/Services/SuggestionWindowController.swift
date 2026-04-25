@@ -6,7 +6,7 @@ final class SuggestionWindowController {
     private let hostingView: NSHostingView<SuggestionBubbleView>
 
     init() {
-        hostingView = NSHostingView(rootView: SuggestionBubbleView(text: ""))
+        hostingView = NSHostingView(rootView: SuggestionBubbleView(text: "", style: .popup, hotKey: "Option+Tab"))
         hostingView.frame = CGRect(x: 0, y: 0, width: 360, height: 42)
 
         panel = NSPanel(
@@ -25,14 +25,20 @@ final class SuggestionWindowController {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
     }
 
-    func show(_ suggestion: CompletionSuggestion, near rect: CGRect?) {
-        hostingView.rootView = SuggestionBubbleView(text: suggestion.text)
+    func show(
+        _ suggestion: CompletionSuggestion,
+        style: SuggestionPresentationStyle,
+        hotKey: String,
+        near rect: CGRect?
+    ) {
+        hostingView.rootView = SuggestionBubbleView(text: suggestion.text, style: style, hotKey: hotKey)
+        panel.hasShadow = style.hasShadow
 
         let preferredSize = hostingView.fittingSize
-        let width = min(max(preferredSize.width, 220), 520)
-        let height = min(max(preferredSize.height, 40), 90)
+        let width = min(max(preferredSize.width, style.minWidth), style.maxWidth)
+        let height = min(max(preferredSize.height, style.minHeight), style.maxHeight)
         panel.setContentSize(NSSize(width: width, height: height))
-        panel.setFrameOrigin(anchorPoint(for: rect, panelSize: NSSize(width: width, height: height)))
+        panel.setFrameOrigin(anchorPoint(for: rect, panelSize: NSSize(width: width, height: height), style: style))
         panel.orderFrontRegardless()
     }
 
@@ -40,15 +46,30 @@ final class SuggestionWindowController {
         panel.orderOut(nil)
     }
 
-    private func anchorPoint(for rect: CGRect?, panelSize: NSSize) -> NSPoint {
+    private func anchorPoint(for rect: CGRect?, panelSize: NSSize, style: SuggestionPresentationStyle) -> NSPoint {
         guard let rect, let screen = NSScreen.screen(containing: rect) ?? NSScreen.main else {
             let mouse = NSEvent.mouseLocation
+            if style == .commandPalette, let screen = NSScreen.main {
+                return NSPoint(
+                    x: screen.visibleFrame.midX - panelSize.width / 2,
+                    y: screen.visibleFrame.maxY - panelSize.height - 84
+                )
+            }
             return NSPoint(x: mouse.x + 14, y: mouse.y - panelSize.height - 14)
         }
 
-        let rawPoint = NSPoint(x: rect.maxX + 8, y: rect.minY - panelSize.height - 6)
-        let flippedY = screen.frame.maxY - rect.maxY - panelSize.height - 6
-        let flippedPoint = NSPoint(x: rect.maxX + 8, y: flippedY)
+        if style == .commandPalette {
+            return NSPoint(
+                x: screen.visibleFrame.midX - panelSize.width / 2,
+                y: screen.visibleFrame.maxY - panelSize.height - 84
+            )
+        }
+
+        let horizontalOffset: CGFloat = style == .ghostText || style == .textOnly ? 2 : 8
+        let verticalOffset: CGFloat = style == .ghostText || style == .textOnly ? 0 : 6
+        let rawPoint = NSPoint(x: rect.maxX + horizontalOffset, y: rect.minY - panelSize.height - verticalOffset)
+        let flippedY = screen.frame.maxY - rect.maxY - panelSize.height - verticalOffset
+        let flippedPoint = NSPoint(x: rect.maxX + horizontalOffset, y: flippedY)
         let candidate = screen.visibleFrame.contains(rawPoint) ? rawPoint : flippedPoint
 
         let clampedX = min(max(candidate.x, screen.visibleFrame.minX + 8), screen.visibleFrame.maxX - panelSize.width - 8)
