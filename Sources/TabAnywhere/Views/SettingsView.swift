@@ -1,0 +1,45 @@
+import SwiftUI
+
+struct SettingsView: View {
+    @ObservedObject var coordinator: CompletionCoordinator
+
+    var body: some View {
+        Form {
+            Section("Completion") {
+                Toggle("Enable suggestions", isOn: Binding(
+                    get: { coordinator.isEnabled },
+                    set: { _ in coordinator.toggleEnabled() }
+                ))
+
+                LabeledContent("Accept suggestion", value: coordinator.acceptanceHotKeyDescription)
+                LabeledContent("Provider", value: "Mock deterministic")
+
+                Picker("Hotkey", selection: Binding(
+                    get: { coordinator.acceptanceHotKey },
+                    set: { coordinator.setAcceptanceHotKey($0) }
+                )) {
+                    ForEach(AcceptanceHotKey.allCases) { hotKey in
+                        Text(hotKey.label).tag(hotKey)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+
+            Section("Permissions") {
+                LabeledContent("Accessibility", value: coordinator.hasAccessibilityPermission ? "Allowed" : "Needed")
+
+                HStack {
+                    Button("Request Permission") {
+                        coordinator.requestAccessibilityPermission()
+                    }
+
+                    Button("Open Privacy Settings") {
+                        coordinator.openAccessibilitySettings()
+                    }
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .padding()
+    }
+}

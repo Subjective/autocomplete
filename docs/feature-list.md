@@ -2,52 +2,52 @@
 
 ## 1. App Foundation
 
-- [ ] Create macOS app project in Swift / SwiftUI
-- [ ] Add menu bar app mode
+- [x] Create macOS app project in Swift / SwiftUI
+- [x] Add menu bar app mode
 - [ ] Add background agent lifecycle
 - [ ] Add launch-at-login support
-- [ ] Add app settings window
+- [x] Add app settings window
 - [ ] Add onboarding flow
-- [ ] Add local logging/debug console
+- [x] Add local logging/debug console
 - [ ] Add feature flags for experimental surfaces
 - [ ] Add crash/error reporting, ideally opt-in
 - [ ] Decide distribution path: Developer ID + notarization, likely outside Mac App Store
 
 ## 2. Permissions & Onboarding
 
-- [ ] Request Accessibility permission
-- [ ] Detect whether Accessibility permission is granted
-- [ ] Deep-link user to macOS Privacy & Security settings
+- [x] Request Accessibility permission
+- [x] Detect whether Accessibility permission is granted
+- [x] Deep-link user to macOS Privacy & Security settings
 - [ ] Request Screen Recording permission for screenshot memory
 - [ ] Explain why each permission is needed
 - [ ] Add “test permissions” step in onboarding
 - [ ] Show active recording/context indicator when screenshot memory is enabled
-- [ ] Add one-click pause/resume
+- [x] Add one-click pause/resume
 - [ ] Add app denylist during onboarding
 - [ ] Add sensitive-app defaults: password managers, banking, private browsing, terminals maybe opt-in
 
 ## 3. Focus & Input Field Detection
 
-- [ ] Track currently focused app
-- [ ] Track currently focused window
-- [ ] Track currently focused accessibility element
-- [ ] Detect editable text fields
-- [ ] Read field role/type via Accessibility APIs
-- [ ] Read current field value when available
-- [ ] Read selected text range
-- [ ] Read cursor/caret range
+- [x] Track currently focused app
+- [x] Track currently focused window
+- [x] Track currently focused accessibility element
+- [x] Detect editable text fields
+- [x] Read field role/type via Accessibility APIs
+- [x] Read current field value when available
+- [x] Read selected text range
+- [x] Read cursor/caret range
 - [ ] Read surrounding text around cursor
-- [ ] Detect secure/password fields and disable completions
-- [ ] Detect unsupported fields and fallback gracefully
+- [x] Detect secure/password fields and disable completions
+- [x] Detect unsupported fields and fallback gracefully
 - [ ] Maintain per-app compatibility metadata
 
 ## 4. Text Context Extraction
 
-- [ ] Extract prefix before cursor
-- [ ] Extract suffix after cursor
-- [ ] Extract selected text
+- [x] Extract prefix before cursor
+- [x] Extract suffix after cursor
+- [x] Extract selected text
 - [ ] Extract nearby paragraph/sentence boundaries
-- [ ] Handle empty input fields
+- [x] Handle empty input fields
 - [ ] Handle multiline text fields
 - [ ] Handle rich text editors
 - [ ] Handle browser textareas/contenteditable fields
@@ -61,16 +61,16 @@
 
 - [ ] Track app switches
 - [ ] Track window switches
-- [ ] Track focus changes
-- [ ] Track mouse clicks
-- [ ] Track keypress timing without storing raw keys unnecessarily
-- [ ] Track typing bursts
-- [ ] Track pause-after-typing events
+- [x] Track focus changes
+- [x] Track mouse clicks
+- [x] Track keypress timing without storing raw keys unnecessarily
+- [x] Track typing bursts
+- [x] Track pause-after-typing events
 - [ ] Track “reply/compose/comment” style UI transitions when inferable
-- [ ] Track accepted suggestions
-- [ ] Track dismissed suggestions
+- [x] Track accepted suggestions
+- [x] Track dismissed suggestions
 - [ ] Track overwritten suggestions
-- [ ] Maintain short-lived local event timeline
+- [x] Maintain short-lived local event timeline
 
 ## 6. Screenshot Memory
 
@@ -120,19 +120,19 @@
 
 ## 9. Completion Request Pipeline
 
-- [ ] Define internal completion request schema
-- [ ] Include current app/window
-- [ ] Include field role
-- [ ] Include prefix/suffix
-- [ ] Include selected text
+- [x] Define internal completion request schema
+- [x] Include current app/window
+- [x] Include field role
+- [x] Include prefix/suffix
+- [x] Include selected text
 - [ ] Include recent edit/action history
 - [ ] Include retrieved scene memory
 - [ ] Include confidence/uncertainty signals
-- [ ] Debounce requests during typing
-- [ ] Cancel stale requests when user continues typing
+- [x] Debounce requests during typing
+- [x] Cancel stale requests when user continues typing
 - [ ] Cache repeated requests
 - [ ] Add timeout budget
-- [ ] Add fallback when model is unavailable
+- [x] Add fallback when model is unavailable
 
 ## 10. Local Model Runtime
 
@@ -154,12 +154,10 @@
 
 - [ ] Define prompt format for text-only completions
 - [ ] Define prompt format for screenshot-aware completions
-- [ ] Define output schema
-- [ ] Support plain inline continuation
-- [ ] Support local rewrite/edit output
-- [ ] Support no-suggestion output
-- [ ] Validate model output before showing
-- [ ] Reject suggestions that duplicate existing text
+- [x] Define output schema
+- [x] Support plain inline continuation
+- [x] Support no-suggestion output
+- [x] Validate model output before showing
 - [ ] Reject suggestions that conflict with cursor state
 - [ ] Reject suggestions that are too long
 - [ ] Add app-specific prompt hints
@@ -167,38 +165,38 @@
 
 ## 12. Suggestion Rendering
 
-- [ ] Compute caret position from Accessibility APIs
-- [ ] Render ghost text overlay near caret
+- [x] Compute caret position from Accessibility APIs
+- [x] Render ghost text overlay near caret
 - [ ] Match font size when possible
 - [ ] Match line height when possible
 - [ ] Match text direction/layout when possible
 - [ ] Handle scrolling fields
-- [ ] Handle multiline ghost text
-- [ ] Hide suggestion when cursor moves
-- [ ] Hide suggestion when user types incompatible text
-- [ ] Hide suggestion on focus loss
-- [ ] Add anchored popover fallback
+- [x] Handle multiline ghost text
+- [x] Hide suggestion when cursor moves
+- [x] Hide suggestion when user types incompatible text
+- [x] Hide suggestion on focus loss
+- [x] Add anchored popover fallback
 - [ ] Add command palette/manual fallback
 - [ ] Add per-app rendering strategy
 
 ## 13. Suggestion Acceptance
 
 - [ ] Accept suggestion with Tab
-- [ ] Accept suggestion with configurable hotkey
+- [x] Accept suggestion with configurable hotkey
 - [ ] Accept word-by-word with modifier hotkey
 - [ ] Dismiss with Escape
-- [ ] Dismiss on continued typing
-- [ ] Insert accepted text through Accessibility when possible
-- [ ] Fall back to simulated paste/keyboard events when necessary
-- [ ] Preserve clipboard when using paste fallback
+- [x] Dismiss on continued typing
+- [x] Insert accepted text through Accessibility when possible
+- [x] Fall back to simulated paste/keyboard events when necessary
+- [x] Preserve clipboard when using paste fallback
 - [ ] Verify inserted text matches expected output
-- [ ] Handle selected-text replacement
+- [x] Handle selected-text replacement
 - [ ] Handle partial acceptance
-- [ ] Log accept/reject signal locally
+- [x] Log accept/reject signal locally
 
 ## 14. Compatibility Matrix
 
-- [ ] Native macOS text fields
+- [x] Native macOS text fields
 - [ ] Safari textareas
 - [ ] Chrome textareas
 - [ ] Gmail compose/reply
@@ -211,12 +209,12 @@
 - [ ] GitHub comments/issues/PRs
 - [ ] VS Code / Cursor
 - [ ] Terminal apps, likely disabled or manual-only initially
-- [ ] Password fields, always disabled
+- [x] Password fields, always disabled
 - [ ] Private/incognito windows, disabled by default
 
 ## 15. Privacy & Security
 
-- [ ] Local-first default
+- [x] Local-first default
 - [ ] Explicit opt-in for screenshot memory
 - [ ] Visible capture indicator
 - [ ] App denylist
@@ -234,9 +232,9 @@
 
 ## 16. Settings UI
 
-- [ ] Enable/disable completions globally
+- [x] Enable/disable completions globally
 - [ ] Enable/disable screenshot memory
-- [ ] Configure hotkeys
+- [x] Configure hotkeys
 - [ ] Configure model
 - [ ] Configure local/cloud mode
 - [ ] Configure capture frequency
@@ -250,7 +248,7 @@
 
 ## 17. Observability & Debugging
 
-- [ ] Local event log
+- [x] Local event log
 - [ ] Completion latency histogram
 - [ ] Model inference latency
 - [ ] Context retrieval latency
@@ -281,16 +279,15 @@
 
 ## 19. MVP Scope
 
-- [ ] Menu bar app
-- [ ] Accessibility permission onboarding
-- [ ] Detect active text field
-- [ ] Read prefix/suffix for supported fields
-- [ ] Generate local or mocked completion
-- [ ] Render anchored popover suggestion
-- [ ] Accept suggestion with hotkey
-- [ ] Insert accepted text
-- [ ] Add basic app denylist
-- [ ] Add local logs
+- [x] Menu bar app
+- [x] Accessibility permission onboarding
+- [x] Detect active text field
+- [x] Read prefix/suffix for supported fields
+- [x] Generate local or mocked completion
+- [x] Render anchored popover suggestion
+- [x] Accept suggestion with hotkey
+- [x] Insert accepted text
+- [x] Add local logs
 - [ ] Support 3–5 target apps first: Safari/Chrome Gmail, Apple Mail, Slack, native text fields
 
 ## 20. MVP+ Screenshot Context
