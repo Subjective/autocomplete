@@ -1,33 +1,48 @@
 import SwiftUI
 
 struct SuggestionBubbleView: View {
-    let text: String
+    let suggestion: CompletionSuggestion
     let style: SuggestionPresentationStyle
     let hotKey: String
     let caretHeight: CGFloat
 
     init(text: String, style: SuggestionPresentationStyle, hotKey: String, caretHeight: CGFloat = 16) {
-        self.text = text
+        self.suggestion = CompletionSuggestion(text: text, contextSummary: "Preview")
+        self.style = style
+        self.hotKey = hotKey
+        self.caretHeight = caretHeight
+    }
+
+    init(suggestion: CompletionSuggestion, style: SuggestionPresentationStyle, hotKey: String, caretHeight: CGFloat = 16) {
+        self.suggestion = suggestion
         self.style = style
         self.hotKey = hotKey
         self.caretHeight = caretHeight
     }
 
     var body: some View {
-        switch style {
-        case .popup:
-            popupBody
-        case .ghostText:
-            ghostTextBody
-        case .compactChip:
-            compactChipBody
-        case .textOnly:
-            textOnlyBody
-        case .candidateWindow:
-            candidateWindowBody
-        case .commandPalette:
-            commandPaletteBody
+        if case .edit(let prediction) = suggestion.kind {
+            editPredictionBody(prediction)
+        } else {
+            switch style {
+            case .popup:
+                popupBody
+            case .ghostText:
+                ghostTextBody
+            case .compactChip:
+                compactChipBody
+            case .textOnly:
+                textOnlyBody
+            case .candidateWindow:
+                candidateWindowBody
+            case .commandPalette:
+                commandPaletteBody
+            }
         }
+    }
+
+    private var text: String {
+        suggestion.text
     }
 
     private var popupBody: some View {
@@ -194,6 +209,104 @@ struct SuggestionBubbleView: View {
                 .stroke(.separator.opacity(0.8), lineWidth: 1)
         }
         .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func editPredictionBody(_ prediction: EditPrediction) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: 8) {
+                Image(systemName: "pencil")
+                    .foregroundStyle(.secondary)
+
+                Text("Edit")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+
+                Spacer(minLength: 12)
+                hotKeyBadge
+            }
+
+            diffText(for: prediction)
+                .font(popupBodyFont)
+                .lineLimit(3)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(.separator.opacity(0.7), lineWidth: 1)
+        }
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func diffText(for prediction: EditPrediction) -> Text {
+        displayFragments(for: prediction).reduce(Text("")) { partial, fragment in
+            let text = Text(fragment.text)
+
+            switch fragment.kind {
+            case .unchanged:
+                return partial + text.foregroundColor(.secondary)
+            case .inserted:
+                return partial + text.foregroundColor(.green)
+            case .deleted:
+                return partial + text.foregroundColor(.red).strikethrough()
+            }
+        }
+    }
+
+    private func displayFragments(for prediction: EditPrediction) -> [TextDiffFragment] {
+        let fragments = prediction.diffFragments
+        guard fragments.contains(where: { $0.kind != .unchanged }) else {
+            return []
+        }
+
+        return fragments.enumerated().compactMap { index, fragment in
+            guard fragment.kind == .unchanged else {
+                return fragment
+            }
+
+            let previousChanged = index > 0 && fragments[index - 1].kind != .unchanged
+            let nextChanged = index + 1 < fragments.count && fragments[index + 1].kind != .unchanged
+
+            if previousChanged, nextChanged {
+                return TextDiffFragment(kind: .unchanged, text: trimmedMiddle(fragment.text, limit: 18))
+            }
+
+            if previousChanged {
+                return TextDiffFragment(kind: .unchanged, text: trimmedPrefix(fragment.text, limit: 32))
+            }
+
+            if nextChanged {
+                return TextDiffFragment(kind: .unchanged, text: trimmedSuffix(fragment.text, limit: 32))
+            }
+
+            return nil
+        }
+    }
+
+    private func trimmedPrefix(_ text: String, limit: Int) -> String {
+        guard text.count > limit else {
+            return text
+        }
+
+        return String(text.prefix(limit)) + "..."
+    }
+
+    private func trimmedSuffix(_ text: String, limit: Int) -> String {
+        guard text.count > limit else {
+            return text
+        }
+
+        return "..." + String(text.suffix(limit))
+    }
+
+    private func trimmedMiddle(_ text: String, limit: Int) -> String {
+        guard text.count > limit * 2 else {
+            return text
+        }
+
+        return String(text.prefix(limit)) + "..." + String(text.suffix(limit))
     }
 
     private var hotKeyBadge: some View {

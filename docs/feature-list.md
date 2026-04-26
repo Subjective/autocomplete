@@ -36,7 +36,7 @@
 - [x] Read current field value when available
 - [x] Read selected text range
 - [x] Read cursor/caret range
-- [ ] Read surrounding text around cursor
+- [x] Read surrounding text around cursor
 - [x] Detect secure/password fields and disable completions
 - [x] Detect unsupported fields and fallback gracefully
 - [ ] Maintain per-app compatibility metadata
@@ -54,7 +54,7 @@
 - [ ] Handle Electron apps
 - [ ] Handle native AppKit text fields
 - [ ] Handle web apps like Gmail, Slack, Notion, Google Docs, Linear
-- [ ] Add context truncation policy
+- [x] Add context truncation policy
 - [ ] Add normalization for whitespace and hidden characters
 
 ## 5. User Activity Tracking
@@ -158,8 +158,8 @@
 - [x] Support plain inline continuation
 - [x] Support no-suggestion output
 - [x] Validate model output before showing
-- [ ] Reject suggestions that conflict with cursor state
-- [ ] Reject suggestions that are too long
+- [x] Reject suggestions that conflict with cursor state
+- [x] Reject suggestions that are too long
 - [ ] Add app-specific prompt hints
 - [ ] Add user tone/style preferences later
 

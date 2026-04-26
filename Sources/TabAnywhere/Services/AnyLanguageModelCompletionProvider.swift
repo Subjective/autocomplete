@@ -12,6 +12,7 @@ struct AnyLanguageModelProviderConfiguration: Equatable {
 final class AnyLanguageModelCompletionProvider: CompletionProviding {
     private let configuration: AnyLanguageModelProviderConfiguration
     private let promptBuilder = CompletionPromptBuilder()
+    private let editPromptBuilder = EditPredictionPromptBuilder()
     private var cachedModel: (any LanguageModel)?
 
     init(configuration: AnyLanguageModelProviderConfiguration) {
@@ -19,14 +20,73 @@ final class AnyLanguageModelCompletionProvider: CompletionProviding {
     }
 
     func promptPayload(for context: CompletionContext) -> CompletionPromptPayload {
-        promptBuilder.payload(for: context)
+        guard let window = context.editableTextWindow() else {
+            return promptBuilder.payload(for: context)
+        }
+
+        return editPromptBuilder.payload(for: context, window: window)
     }
 
-    func suggestion(for context: CompletionContext) async throws -> CompletionSuggestion? {
+    func suggestions(for context: CompletionContext, maximumCount: Int) async throws -> [CompletionSuggestion] {
+        let rewriteSuggestions = try await editPredictionSuggestions(for: context, maximumCount: maximumCount)
+        if !rewriteSuggestions.isEmpty {
+            return rewriteSuggestions
+        }
+
+        guard context.suffix.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return []
+        }
+
+        if let completionSuggestion = try await completionSuggestion(for: context) {
+            return [completionSuggestion]
+        }
+
+        return []
+    }
+
+    private func editPredictionSuggestions(for context: CompletionContext, maximumCount: Int) async throws -> [CompletionSuggestion] {
+        guard let window = context.editableTextWindow() else {
+            return []
+        }
+
+        let model = try await makeModel()
+        let boundedMaximumCount = min(max(maximumCount, 1), 3)
+        let payload = editPromptBuilder.payload(for: context, window: window, maximumSuggestions: boundedMaximumCount)
+        let session = LanguageModelSession(model: model, instructions: payload.systemPrompt)
+        let response = try await session.respond(to: payload.userPrompt, options: generationOptions(maximumResponseTokens: 384))
+        let predictions = editPromptBuilder.predictions(
+            from: response.content,
+            for: window,
+            maximumSuggestions: boundedMaximumCount
+        )
+
+        guard !predictions.isEmpty else {
+            return []
+        }
+
+        return predictions.map { prediction in
+            if let completionText = prediction.appendCompletionTextIfApplicable(
+                originalCaretUTF16Offset: context.caretUTF16Offset,
+                suffixIsEmpty: context.suffix.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ) {
+                return CompletionSuggestion(
+                    text: completionText,
+                    contextSummary: "\(configuration.kind.title) / \(context.appName)"
+                )
+            }
+
+            return CompletionSuggestion(
+                editPrediction: prediction,
+                contextSummary: "\(configuration.kind.title) / \(context.appName)"
+            )
+        }
+    }
+
+    private func completionSuggestion(for context: CompletionContext) async throws -> CompletionSuggestion? {
         let model = try await makeModel()
         let session = LanguageModelSession(model: model, instructions: promptBuilder.instructions)
         let prompt = promptBuilder.prompt(for: context)
-        let response = try await session.respond(to: prompt, options: generationOptions())
+        let response = try await session.respond(to: prompt, options: generationOptions(maximumResponseTokens: 64))
 
         guard let text = promptBuilder.validatedSuggestionText(response.content, for: context) else {
             return nil
@@ -85,8 +145,8 @@ final class AnyLanguageModelCompletionProvider: CompletionProviding {
         return model
     }
 
-    private func generationOptions() -> GenerationOptions {
-        var options = GenerationOptions(temperature: 0.2, maximumResponseTokens: 64)
+    private func generationOptions(maximumResponseTokens: Int) -> GenerationOptions {
+        var options = GenerationOptions(temperature: 0.2, maximumResponseTokens: maximumResponseTokens)
 
         if configuration.kind == .localLlama {
             options[custom: LlamaLanguageModel.self] = .init(

@@ -31,20 +31,23 @@ final class SuggestionWindowController {
         hotKey: String,
         near rect: CGRect?
     ) {
+        let renderStyle = suggestion.isEditPrediction ? SuggestionPresentationStyle.popup : style
         let caretHeight = max(rect?.height ?? 16, 1)
         hostingView.rootView = SuggestionBubbleView(
-            text: suggestion.text,
-            style: style,
+            suggestion: suggestion,
+            style: renderStyle,
             hotKey: hotKey,
             caretHeight: caretHeight
         )
-        panel.hasShadow = style.hasShadow
+        panel.hasShadow = renderStyle.hasShadow
 
         let preferredSize = hostingView.fittingSize
-        let width = min(max(preferredSize.width, style.minWidth), style.maxWidth)
-        let height = min(max(preferredSize.height, style.minHeight), style.maxHeight)
+        let maxWidth = suggestion.isEditPrediction ? 640 : renderStyle.maxWidth
+        let maxHeight = suggestion.isEditPrediction ? 140 : renderStyle.maxHeight
+        let width = min(max(preferredSize.width, renderStyle.minWidth), maxWidth)
+        let height = min(max(preferredSize.height, renderStyle.minHeight), maxHeight)
         panel.setContentSize(NSSize(width: width, height: height))
-        panel.setFrameOrigin(anchorPoint(for: rect, panelSize: NSSize(width: width, height: height), style: style))
+        panel.setFrameOrigin(anchorPoint(for: rect, panelSize: NSSize(width: width, height: height), style: renderStyle))
         panel.orderFrontRegardless()
     }
 

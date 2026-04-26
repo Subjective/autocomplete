@@ -41,10 +41,12 @@ final class CompletionCoordinator: ObservableObject {
     private var modelSearchTask: Task<Void, Never>?
     private var modelDownloadTask: Task<Void, Never>?
     private var activeSuggestion: CompletionSuggestion?
+    private var activeSuggestions: [CompletionSuggestion] = []
     private var activeContext: CompletionContext?
     private var cachedProviderConfiguration: AnyLanguageModelProviderConfiguration?
     private var cachedAnyProvider: AnyLanguageModelCompletionProvider?
     private var generationRequestID = 0
+    private let maximumSuggestionCount = 1
     private var didStart = false
 
     var acceptanceHotKeyDescription: String {
@@ -161,12 +163,6 @@ final class CompletionCoordinator: ObservableObject {
             "\(context.appName) - \($0) (\(context.role))"
         } ?? "\(context.appName) (\(context.role))"
 
-        guard context.suffix.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            recordSkippedPrompt(for: context, result: "Skipped: text exists after cursor")
-            clearSuggestion(reason: "No suggestion when text exists after cursor")
-            return
-        }
-
         guard isEnabled else {
             clearSuggestion(reason: "No suggestion for current context")
             return
@@ -174,6 +170,7 @@ final class CompletionCoordinator: ObservableObject {
 
         activeContext = context
         activeSuggestion = nil
+        activeSuggestions = []
         activeSuggestionText = ""
         suggestionWindow.hide()
         statusMessage = "Generating with \(providerDescription)..."
@@ -195,22 +192,23 @@ final class CompletionCoordinator: ObservableObject {
                     }
                     self.lastPromptSnapshot = promptSnapshot
                 }
-                let suggestion = try await provider.suggestion(for: context)
+                let suggestions = try await provider.suggestions(for: context, maximumCount: self.maximumSuggestionCount)
 
                 await MainActor.run {
                     guard self.generationRequestID == requestID, !Task.isCancelled else {
                         return
                     }
 
-                    guard let suggestion, !suggestion.text.isEmpty else {
+                    guard let suggestion = suggestions.first, !suggestion.text.isEmpty else {
                         self.lastPromptSnapshot = promptSnapshot.withResult("No suggestion")
                         self.clearSuggestion(reason: "No suggestion for current context")
                         return
                     }
 
-                    self.lastPromptSnapshot = promptSnapshot.withResult("Suggested: \(suggestion.text)")
+                    self.lastPromptSnapshot = promptSnapshot.withResult("Suggested: \(suggestions.map(\.text).joined(separator: " | "))")
                     self.activeContext = context
                     self.activeSuggestion = suggestion
+                    self.activeSuggestions = suggestions
                     self.activeSuggestionText = suggestion.text
                     self.suggestionWindow.show(
                         suggestion,
@@ -250,9 +248,13 @@ final class CompletionCoordinator: ObservableObject {
             return
         }
 
-        _ = insertion.insert(suggestion, into: context)
-        log("Accepted \(suggestion.text)")
-        clearSuggestion(reason: "Suggestion accepted")
+        if insertion.insert(suggestion, into: context) {
+            log("Accepted \(suggestion.text)")
+            clearSuggestion(reason: "Suggestion accepted")
+        } else {
+            log("Could not apply \(suggestion.text)")
+            clearSuggestion(reason: "Could not apply suggestion in this field")
+        }
     }
 
     func toggleEnabled() {
@@ -498,6 +500,7 @@ final class CompletionCoordinator: ObservableObject {
         generationRequestID += 1
         generationTask?.cancel()
         activeSuggestion = nil
+        activeSuggestions = []
         activeContext = nil
         activeSuggestionText = ""
         suggestionWindow.hide()
