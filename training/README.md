@@ -1,7 +1,7 @@
 # TabAnywhere Training Pipeline
 
-This directory contains the local-first fine-tuning and evaluation pipeline for
-TabAnywhere's unified edit prediction model.
+This directory contains the local-first fine-tuning, preference tuning, and
+evaluation pipeline for TabAnywhere's unified edit prediction model.
 
 The model task is intentionally the same task used by the app:
 
@@ -18,7 +18,7 @@ the app computes patches deterministically from the rewrite.
 
 - `data/seed/`: curated SFT examples.
 - `data/eval/`: frozen evaluation examples.
-- `data/preference/`: DPO/preference pairs for later restraint tuning.
+- `data/preference/`: DPO/preference pairs for restraint tuning.
 - `data/raw/`: local opt-in exports before redaction and review. Ignored by git.
 - `schemas/`: JSON schema documentation for dataset records.
 - `prompts/`: training/inference prompt contract.
@@ -117,11 +117,21 @@ private, create Colab secrets named `GITHUB_TOKEN` and `HF_TOKEN`.
    python3 training/scripts/train_unsloth_qlora.py --config training/configs/sft_gemma_lora.yaml --merge
    ```
 
-5. Export GGUF variants with `configs/export_gguf.yaml`, then benchmark in the
+5. Optionally run DPO preference tuning on top of the SFT adapter.
+
+   ```bash
+   python3 training/scripts/split_dataset.py training/data/preference/tabanywhere_dpo_v001.jsonl --out-dir training/runs/dpo_splits
+   python3 training/scripts/prepare_dpo_dataset.py training/data/preference/tabanywhere_dpo_v001.jsonl training/runs/dpo_messages.jsonl
+   python3 training/scripts/train_unsloth_dpo.py --config training/configs/dpo_gemma_lora.yaml --merge
+   ```
+
+6. Export GGUF variants with `configs/export_gguf.yaml` for SFT-only or
+   `configs/export_dpo_gguf.yaml` for SFT+DPO, then benchmark in the
    macOS app.
 
    ```bash
    python3 training/scripts/export_gguf_unsloth.py --config training/configs/export_gguf.yaml
+   python3 training/scripts/export_gguf_unsloth.py --config training/configs/export_dpo_gguf.yaml
    ```
 
 ## Data Principles

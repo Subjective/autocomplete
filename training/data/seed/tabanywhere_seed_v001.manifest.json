@@ -2,7 +2,7 @@
   "name": "tabanywhere_seed_v001",
   "kind": "sft",
   "format": "jsonl",
-  "records": 18,
+  "records": 42,
   "description": "Initial curated examples for unified rewrite-based completion, edit prediction, and screenshot-grounded replies.",
   "categories": [
     "completion.short",
@@ -10,6 +10,7 @@
     "edit.typo",
     "edit.grammar",
     "edit.phrase",
+    "edit.punctuation",
     "edit.multi",
     "edit.suffix_aware",
     "noop.ambiguous",

@@ -146,7 +146,6 @@ def main() -> int:
         "per_device_train_batch_size": int(training_config["per_device_train_batch_size"]),
         "gradient_accumulation_steps": int(training_config["gradient_accumulation_steps"]),
         "learning_rate": float(training_config["learning_rate"]),
-        "warmup_ratio": float(training_config["warmup_ratio"]),
         "num_train_epochs": float(training_config["epochs"]),
         "weight_decay": float(training_config["weight_decay"]),
         "lr_scheduler_type": training_config["lr_scheduler_type"],
@@ -157,6 +156,10 @@ def main() -> int:
         "seed": int(training_config["seed"]),
         "report_to": "none",
     }
+    if "warmup_steps" in training_config:
+        training_args_kwargs["warmup_steps"] = int(training_config["warmup_steps"])
+    else:
+        training_args_kwargs["warmup_ratio"] = float(training_config["warmup_ratio"])
     training_args = TrainingArguments(**training_args_kwargs)
 
     trainer = SFTTrainer(

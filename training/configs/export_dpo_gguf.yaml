@@ -1,0 +1,26 @@
+run_name: tabanywhere-gemma-edit-dpo-v001
+source:
+  base_model: google/gemma-4-E4B-it
+  runtime_reference_model: unsloth/gemma-4-E4B-it-GGUF
+  runtime_reference_file: gemma-4-E4B-it-Q4_K_M.gguf
+  merged_model_dir: training/models/tabanywhere-gemma-edit-dpo-v001-merged
+  adapter_dir: training/models/tabanywhere-gemma-edit-dpo-v001-lora
+
+exports:
+  - quantization: f16
+    output_path: training/models/tabanywhere-gemma-edit-dpo-v001-f16.gguf
+  - quantization: q8_0
+    output_path: training/models/tabanywhere-gemma-edit-dpo-v001-q8_0.gguf
+  - quantization: q4_k_m
+    output_path: training/models/tabanywhere-gemma-edit-dpo-v001-q4_k_m.gguf
+
+validation:
+  eval_config: training/configs/eval_finetuned_gemma.yaml
+  require_parse_valid_rate: 0.98
+  require_kind_correct_rate: 0.85
+  require_noop_precision_rate: 0.9
+
+notes:
+  - Export from the SFT+DPO merged model.
+  - Use q8_0 as the quality reference and q4_k_m as the latency candidate.
+  - Verify the GGUF chat template and EOS behavior against the app runtime.

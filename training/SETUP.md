@@ -40,7 +40,9 @@ uv pip install -r training/requirements-training.txt
 huggingface-cli login
 python training/scripts/split_dataset.py training/data/seed/tabanywhere_seed_v001.jsonl --out-dir training/runs/splits
 python training/scripts/train_unsloth_qlora.py --config training/configs/sft_gemma_lora.yaml --merge
-python training/scripts/export_gguf_unsloth.py --config training/configs/export_gguf.yaml
+python training/scripts/split_dataset.py training/data/preference/tabanywhere_dpo_v001.jsonl --out-dir training/runs/dpo_splits
+python training/scripts/train_unsloth_dpo.py --config training/configs/dpo_gemma_lora.yaml --merge
+python training/scripts/export_gguf_unsloth.py --config training/configs/export_dpo_gguf.yaml
 ```
 
 If `google/gemma-4-E4B-it` is gated, accept the model license on Hugging Face

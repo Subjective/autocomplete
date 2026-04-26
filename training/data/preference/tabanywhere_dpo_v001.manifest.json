@@ -2,6 +2,6 @@
   "name": "tabanywhere_dpo_v001",
   "kind": "preference",
   "format": "jsonl",
-  "records": 6,
-  "description": "Initial preference pairs focused on restraint, anti-hallucination behavior, and screenshot-grounded replies."
+  "records": 27,
+  "description": "Initial preference pairs focused on restraint, anti-hallucination behavior, screenshot-grounded replies, and avoiding over-broad rewrites."
 }

@@ -1,0 +1,55 @@
+run_name: tabanywhere-gemma-edit-dpo-v001
+base_model: google/gemma-4-E4B-it
+sft_adapter_dir: training/models/tabanywhere-gemma-edit-sft-v001-lora
+method: dpo
+trainer: unsloth
+
+prompt:
+  system_path: training/prompts/edit_prediction_system.txt
+  user_template_path: training/prompts/edit_prediction_user_template.txt
+  eos_token_policy: match_inference_runtime
+
+data:
+  train_path: training/runs/dpo_splits/train.jsonl
+  validation_path: training/runs/dpo_splits/validation.jsonl
+  source_preference_path: training/data/preference/tabanywhere_dpo_v001.jsonl
+  max_sequence_length: 1024
+  max_prompt_length: 768
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.0
+  target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+training:
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 8
+  learning_rate: 0.000005
+  warmup_steps: 0
+  epochs: 1
+  weight_decay: 0.0
+  lr_scheduler_type: cosine
+  seed: 42
+  beta: 0.1
+  loss_type: sigmoid
+  save_steps: 25
+  eval_steps: 25
+  logging_steps: 5
+
+output:
+  adapter_dir: training/models/tabanywhere-gemma-edit-dpo-v001-lora
+  merged_dir: training/models/tabanywhere-gemma-edit-dpo-v001-merged
+  metrics_dir: training/runs/tabanywhere-gemma-edit-dpo-v001
+
+notes:
+  - Run after SFT; this stage tightens restraint and anti-hallucination behavior.
+  - Preference pairs should prefer small grounded rewrites over invented details or broad rewrites.
+  - Keep DPO learning rate lower than SFT to avoid damaging the rewrite contract.

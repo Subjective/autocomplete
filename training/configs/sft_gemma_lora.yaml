@@ -15,7 +15,7 @@ data:
   train_path: training/runs/splits/train.jsonl
   validation_path: training/runs/splits/validation.jsonl
   source_seed_path: training/data/seed/tabanywhere_seed_v001.jsonl
-  max_sequence_length: 2048
+  max_sequence_length: 1024
 
 lora:
   r: 16
@@ -31,10 +31,10 @@ lora:
     - down_proj
 
 training:
-  per_device_train_batch_size: 2
+  per_device_train_batch_size: 1
   gradient_accumulation_steps: 8
   learning_rate: 0.0002
-  warmup_ratio: 0.03
+  warmup_steps: 0
   epochs: 3
   weight_decay: 0.01
   lr_scheduler_type: cosine
@@ -54,4 +54,5 @@ notes:
   - Train and infer with the same prompt contract.
   - Add many no-op examples before increasing epochs.
   - LoRA dropout is 0.0 because Unsloth's fast path is optimized for zero dropout.
+  - L4 Colab runs should start with batch size 1 and 1024-token windows to avoid OOM.
   - Benchmark q8_0 and q4_k_m; do not assume the smallest quantization preserves caret discipline.

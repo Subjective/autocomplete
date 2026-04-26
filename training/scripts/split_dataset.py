@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create deterministic train/validation splits from an SFT JSONL dataset."""
+"""Create deterministic train/validation splits from a JSONL dataset."""
 
 from __future__ import annotations
 
