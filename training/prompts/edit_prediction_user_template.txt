@@ -1,0 +1,20 @@
+App: {{app_name}}
+Window: {{window_title}}
+Field role: {{field_role}}
+
+Candidate count: {{candidate_count}}.
+
+Recent actions:
+<|recent_actions|>
+{{recent_actions}}
+<|end_recent_actions|>
+
+Recent visual context:
+<|visual_context|>
+{{visual_context}}
+<|end_visual_context|>
+
+Editable text window:
+<|editable_text|>
+{{input}}
+<|end_editable_text|>

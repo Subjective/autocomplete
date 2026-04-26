@@ -1,3 +1,15 @@
 .build/
 dist/
 .DS_Store
+__pycache__/
+.venv-training/
+training/.venv/
+
+training/runs/*
+!training/runs/.gitkeep
+
+training/models/*
+!training/models/.gitkeep
+
+training/data/raw/*
+!training/data/raw/.gitkeep

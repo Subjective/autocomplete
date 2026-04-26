@@ -1,0 +1,20 @@
+{
+  "name": "tabanywhere_seed_v001",
+  "kind": "sft",
+  "format": "jsonl",
+  "records": 16,
+  "description": "Initial curated examples for unified rewrite-based completion and edit prediction.",
+  "categories": [
+    "completion.short",
+    "completion.long_obvious",
+    "edit.typo",
+    "edit.grammar",
+    "edit.phrase",
+    "edit.multi",
+    "edit.suffix_aware",
+    "noop.ambiguous",
+    "noop.unsafe",
+    "noop.overeager"
+  ],
+  "created_for": "TabAnywhere unified edit prediction v1"
+}

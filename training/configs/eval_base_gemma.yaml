@@ -1,0 +1,30 @@
+name: eval-base-gemma
+model:
+  label: base-gemma-4-e4b-it-q4-k-m
+  provider: local-llama
+  hf_repo: unsloth/gemma-4-E4B-it-GGUF
+  gguf_file: gemma-4-E4B-it-Q4_K_M.gguf
+  gguf_path: training/models/gemma-4-E4B-it-Q4_K_M.gguf
+  prompt_system_path: training/prompts/edit_prediction_system.txt
+  prompt_user_template_path: training/prompts/edit_prediction_user_template.txt
+
+data:
+  eval_path: training/data/eval/tabanywhere_eval_v001.jsonl
+  rendered_prompts_path: training/runs/base_gemma_eval_prompts.jsonl
+  predictions_path: training/runs/base_gemma_predictions.jsonl
+
+generation:
+  temperature: 0.2
+  top_p: 0.9
+  top_k: 32
+  repeat_penalty: 1.12
+  max_tokens: 384
+
+metrics:
+  - parse_valid
+  - kind_correct
+  - exact_target
+  - within_edit_count
+  - within_changed_chars
+  - must_not_contain_ok
+  - latency_ms

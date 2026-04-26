@@ -1,0 +1,56 @@
+run_name: tabanywhere-gemma-edit-sft-v001
+base_model: google/gemma-4-E4B-it
+runtime_reference_model: unsloth/gemma-4-E4B-it-GGUF
+runtime_reference_file: gemma-4-E4B-it-Q4_K_M.gguf
+method: qlora
+trainer: unsloth
+
+prompt:
+  system_path: training/prompts/edit_prediction_system.txt
+  user_template_path: training/prompts/edit_prediction_user_template.txt
+  output_field: target
+  eos_token_policy: match_inference_runtime
+
+data:
+  train_path: training/runs/splits/train.jsonl
+  validation_path: training/runs/splits/validation.jsonl
+  source_seed_path: training/data/seed/tabanywhere_seed_v001.jsonl
+  max_sequence_length: 2048
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+training:
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 8
+  learning_rate: 0.0002
+  warmup_ratio: 0.03
+  epochs: 3
+  weight_decay: 0.01
+  lr_scheduler_type: cosine
+  seed: 42
+  packing: false
+  save_steps: 50
+  eval_steps: 50
+  logging_steps: 10
+
+output:
+  adapter_dir: training/models/tabanywhere-gemma-edit-sft-v001-lora
+  merged_dir: training/models/tabanywhere-gemma-edit-sft-v001-merged
+  metrics_dir: training/runs/tabanywhere-gemma-edit-sft-v001
+
+notes:
+  - The runtime reference GGUF repo advertises base_model:google/gemma-4-E4B-it.
+  - Train and infer with the same prompt contract.
+  - Add many no-op examples before increasing epochs.
+  - Benchmark q8_0 and q4_k_m; do not assume the smallest quantization preserves caret discipline.

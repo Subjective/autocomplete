@@ -1,0 +1,10 @@
+accelerate
+bitsandbytes
+datasets
+huggingface_hub
+peft
+pyyaml
+torch
+transformers
+trl
+unsloth

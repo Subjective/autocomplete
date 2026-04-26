@@ -1,0 +1,20 @@
+App: Mail
+Window: Compose
+Field role: message body
+
+Candidate count: 1.
+
+Recent actions:
+<|recent_actions|>
+Typed: "Hi Maya, unfrotunately"
+<|end_recent_actions|>
+
+Recent visual context:
+<|visual_context|>
+None
+<|end_visual_context|>
+
+Editable text window:
+<|editable_text|>
+Hi Maya, unfrotunately I can't make it today<|caret|>
+<|end_editable_text|>

@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TabAnywhere SFT Example",
+  "type": "object",
+  "required": ["id", "category", "input", "target"],
+  "additionalProperties": true,
+  "properties": {
+    "id": { "type": "string" },
+    "category": {
+      "type": "string",
+      "enum": [
+        "completion.short",
+        "completion.long_obvious",
+        "edit.typo",
+        "edit.grammar",
+        "edit.phrase",
+        "edit.multi",
+        "edit.suffix_aware",
+        "noop.ambiguous",
+        "noop.unsafe",
+        "noop.overeager"
+      ]
+    },
+    "app_name": { "type": "string" },
+    "window_title": { "type": "string" },
+    "field_role": { "type": "string" },
+    "recent_actions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "visual_context": { "type": "string" },
+    "input": {
+      "type": "string",
+      "description": "Editable text window containing exactly one <|caret|> marker."
+    },
+    "target": {
+      "type": "string",
+      "description": "Rewritten editable text window containing exactly one <|caret|> marker."
+    },
+    "notes": { "type": "string" }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "name": "tabanywhere_dpo_v001",
+  "kind": "preference",
+  "format": "jsonl",
+  "records": 5,
+  "description": "Initial preference pairs focused on restraint and anti-hallucination behavior."
+}

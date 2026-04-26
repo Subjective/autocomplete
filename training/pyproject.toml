@@ -1,0 +1,24 @@
+[project]
+name = "tabanywhere-training"
+version = "0.1.0"
+description = "Training and evaluation tools for TabAnywhere edit prediction fine-tuning."
+requires-python = ">=3.11,<3.13"
+dependencies = [
+  "pyyaml",
+]
+
+[project.optional-dependencies]
+training = [
+  "accelerate",
+  "bitsandbytes",
+  "datasets",
+  "huggingface_hub",
+  "peft",
+  "torch",
+  "transformers",
+  "trl",
+  "unsloth",
+]
+
+[tool.uv]
+package = false

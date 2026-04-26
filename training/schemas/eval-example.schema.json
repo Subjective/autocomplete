@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TabAnywhere Eval Example",
+  "type": "object",
+  "required": ["id", "category", "expected_kind", "input", "target"],
+  "additionalProperties": true,
+  "properties": {
+    "id": { "type": "string" },
+    "category": { "type": "string" },
+    "expected_kind": {
+      "type": "string",
+      "enum": ["completion", "edit", "noop"]
+    },
+    "input": { "type": "string" },
+    "target": { "type": "string" },
+    "max_edit_count": { "type": "integer", "minimum": 0 },
+    "max_changed_chars": { "type": "integer", "minimum": 0 },
+    "must_not_contain": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "notes": { "type": "string" }
+  }
+}

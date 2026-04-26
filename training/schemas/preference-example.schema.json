@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TabAnywhere Preference Example",
+  "type": "object",
+  "required": ["id", "category", "input", "chosen", "rejected"],
+  "additionalProperties": true,
+  "properties": {
+    "id": { "type": "string" },
+    "category": { "type": "string" },
+    "input": { "type": "string" },
+    "chosen": {
+      "type": "string",
+      "description": "Preferred rewritten editable text window with exactly one caret marker."
+    },
+    "rejected": {
+      "type": "string",
+      "description": "Rejected rewritten editable text window with exactly one caret marker."
+    },
+    "rejection_reason": { "type": "string" }
+  }
+}

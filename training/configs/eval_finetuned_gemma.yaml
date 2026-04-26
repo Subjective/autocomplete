@@ -1,0 +1,28 @@
+name: eval-finetuned-gemma
+model:
+  label: tabanywhere-gemma-edit-sft-v001
+  provider: local-llama
+  gguf_path: training/models/tabanywhere-gemma-edit-sft-v001-q4_k_m.gguf
+  prompt_system_path: training/prompts/edit_prediction_system.txt
+  prompt_user_template_path: training/prompts/edit_prediction_user_template.txt
+
+data:
+  eval_path: training/data/eval/tabanywhere_eval_v001.jsonl
+  rendered_prompts_path: training/runs/finetuned_gemma_eval_prompts.jsonl
+  predictions_path: training/runs/finetuned_gemma_predictions.jsonl
+
+generation:
+  temperature: 0.2
+  top_p: 0.9
+  top_k: 32
+  repeat_penalty: 1.12
+  max_tokens: 384
+
+metrics:
+  - parse_valid
+  - kind_correct
+  - exact_target
+  - within_edit_count
+  - within_changed_chars
+  - must_not_contain_ok
+  - latency_ms
