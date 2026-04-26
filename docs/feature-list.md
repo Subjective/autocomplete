@@ -152,7 +152,7 @@
 
 ## 11. Prompting / Model Interface
 
-- [x] Define prompt format for text-only completions
+- [x] Define prompt format for unified text edit predictions
 - [ ] Define prompt format for screenshot-aware completions
 - [x] Define output schema
 - [x] Support plain inline continuation

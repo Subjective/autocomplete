@@ -11,7 +11,6 @@ struct AnyLanguageModelProviderConfiguration: Equatable {
 
 final class AnyLanguageModelCompletionProvider: CompletionProviding {
     private let configuration: AnyLanguageModelProviderConfiguration
-    private let promptBuilder = CompletionPromptBuilder()
     private let editPromptBuilder = EditPredictionPromptBuilder()
     private var cachedModel: (any LanguageModel)?
 
@@ -21,30 +20,16 @@ final class AnyLanguageModelCompletionProvider: CompletionProviding {
 
     func promptPayload(for context: CompletionContext) -> CompletionPromptPayload {
         guard let window = context.editableTextWindow() else {
-            return promptBuilder.payload(for: context)
+            return CompletionPromptPayload(
+                systemPrompt: editPromptBuilder.instructions,
+                userPrompt: "No editable text window available."
+            )
         }
 
         return editPromptBuilder.payload(for: context, window: window)
     }
 
     func suggestions(for context: CompletionContext, maximumCount: Int) async throws -> [CompletionSuggestion] {
-        let rewriteSuggestions = try await editPredictionSuggestions(for: context, maximumCount: maximumCount)
-        if !rewriteSuggestions.isEmpty {
-            return rewriteSuggestions
-        }
-
-        guard context.suffix.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return []
-        }
-
-        if let completionSuggestion = try await completionSuggestion(for: context) {
-            return [completionSuggestion]
-        }
-
-        return []
-    }
-
-    private func editPredictionSuggestions(for context: CompletionContext, maximumCount: Int) async throws -> [CompletionSuggestion] {
         guard let window = context.editableTextWindow() else {
             return []
         }
@@ -80,22 +65,6 @@ final class AnyLanguageModelCompletionProvider: CompletionProviding {
                 contextSummary: "\(configuration.kind.title) / \(context.appName)"
             )
         }
-    }
-
-    private func completionSuggestion(for context: CompletionContext) async throws -> CompletionSuggestion? {
-        let model = try await makeModel()
-        let session = LanguageModelSession(model: model, instructions: promptBuilder.instructions)
-        let prompt = promptBuilder.prompt(for: context)
-        let response = try await session.respond(to: prompt, options: generationOptions(maximumResponseTokens: 64))
-
-        guard let text = promptBuilder.validatedSuggestionText(response.content, for: context) else {
-            return nil
-        }
-
-        return CompletionSuggestion(
-            text: text,
-            contextSummary: "\(configuration.kind.title) / \(context.appName)"
-        )
     }
 
     private func makeModel() async throws -> any LanguageModel {

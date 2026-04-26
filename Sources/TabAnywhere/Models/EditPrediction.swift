@@ -24,15 +24,26 @@ struct EditPrediction: Equatable {
             return nil
         }
 
-        guard edit.isInsertion, edit.startUTF16Offset == originalCaretUTF16Offset else {
+        if edit.isInsertion, edit.startUTF16Offset == originalCaretUTF16Offset {
+            guard !edit.replacement.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                return nil
+            }
+
+            return edit.replacement
+        }
+
+        guard edit.endUTF16Offset == originalCaretUTF16Offset,
+              edit.replacement.hasPrefix(edit.originalText)
+        else {
             return nil
         }
 
-        guard !edit.replacement.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        let appendedText = String(edit.replacement.dropFirst(edit.originalText.count))
+        guard !appendedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return nil
         }
 
-        return edit.replacement
+        return appendedText
     }
 }
 

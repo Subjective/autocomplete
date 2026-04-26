@@ -524,7 +524,10 @@ final class CompletionCoordinator: ObservableObject {
             payload = CompletionPromptPayload(systemPrompt: "Mock provider", userPrompt: "Mock provider does not send a model prompt.")
         case .localLlama, .huggingFaceRouter, .gemini, .openAICompatible:
             let provider = makeCompletionProvider() as? AnyLanguageModelCompletionProvider
-            payload = provider?.promptPayload(for: context) ?? CompletionPromptBuilder().payload(for: context)
+            payload = provider?.promptPayload(for: context) ?? CompletionPromptPayload(
+                systemPrompt: "Unavailable",
+                userPrompt: "Could not build edit prediction prompt."
+            )
         }
 
         return PromptInspectionSnapshot(
