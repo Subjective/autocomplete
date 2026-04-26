@@ -19,6 +19,14 @@ struct TextDiffService {
             return nil
         }
 
+        if let caretInsertionPrediction = predictionForCaretInsertion(
+            rewrittenText: rewrittenText,
+            rewrittenCaretUTF16OffsetInWindow: rewrittenCaretUTF16OffsetInWindow,
+            originalWindow: originalWindow
+        ) {
+            return caretInsertionPrediction
+        }
+
         let diff = diffFragments(original: originalWindow.text, rewritten: rewrittenText)
         let edits = textEdits(from: diff, windowStartUTF16Offset: originalWindow.startUTF16Offset)
 
@@ -32,6 +40,64 @@ struct TextDiffService {
             rewrittenCaretUTF16OffsetInWindow: rewrittenCaretUTF16OffsetInWindow,
             edits: edits,
             diffFragments: diff
+        )
+
+        guard isValid(prediction) else {
+            return nil
+        }
+
+        return prediction
+    }
+
+    private func predictionForCaretInsertion(
+        rewrittenText: String,
+        rewrittenCaretUTF16OffsetInWindow: Int,
+        originalWindow: EditableTextWindow
+    ) -> EditPrediction? {
+        let caret = originalWindow.caretUTF16OffsetInWindow
+        guard let originalPrefix = originalWindow.text.substringByUTF16Range(location: 0, length: caret),
+              let originalSuffix = originalWindow.text.substringByUTF16Range(
+                location: caret,
+                length: originalWindow.text.utf16.count - caret
+              )
+        else {
+            return nil
+        }
+
+        let insertedUTF16Length = rewrittenText.utf16.count - originalPrefix.utf16.count - originalSuffix.utf16.count
+        guard insertedUTF16Length > 0,
+              rewrittenText.hasPrefix(originalPrefix),
+              rewrittenText.hasSuffix(originalSuffix),
+              let insertedText = rewrittenText.substringByUTF16Range(
+                location: originalPrefix.utf16.count,
+                length: insertedUTF16Length
+              ),
+              "\(originalPrefix)\(insertedText)\(originalSuffix)" == rewrittenText,
+              !insertedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
+            return nil
+        }
+
+        let absoluteCaret = originalWindow.startUTF16Offset + caret
+        let diffFragments = [
+            TextDiffFragment(kind: .unchanged, text: originalPrefix),
+            TextDiffFragment(kind: .inserted, text: insertedText),
+            TextDiffFragment(kind: .unchanged, text: originalSuffix)
+        ].filter { !$0.text.isEmpty }
+
+        let prediction = EditPrediction(
+            originalWindow: originalWindow,
+            rewrittenWindowText: rewrittenText,
+            rewrittenCaretUTF16OffsetInWindow: rewrittenCaretUTF16OffsetInWindow,
+            edits: [
+                TextEdit(
+                    startUTF16Offset: absoluteCaret,
+                    endUTF16Offset: absoluteCaret,
+                    originalText: "",
+                    replacement: insertedText
+                )
+            ],
+            diffFragments: diffFragments
         )
 
         guard isValid(prediction) else {
