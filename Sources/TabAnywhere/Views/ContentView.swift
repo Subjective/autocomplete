@@ -29,6 +29,7 @@ struct ContentView: View {
                     styleLabSection
                     modelSection
                     nativeTestSection
+                    promptInspectorSection
                     eventSection
                 }
                 .padding(24)
@@ -177,6 +178,62 @@ struct ContentView: View {
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(.separator.opacity(0.7), lineWidth: 1)
+        }
+    }
+
+    private var promptInspectorSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Prompt Inspector")
+                    .font(.headline)
+
+                Spacer()
+
+                if let snapshot = coordinator.lastPromptSnapshot {
+                    Text(DateFormatter.tabAnywhereTime.string(from: snapshot.createdAt))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if let snapshot = coordinator.lastPromptSnapshot {
+                VStack(alignment: .leading, spacing: 8) {
+                    LabeledContent("Provider", value: snapshot.provider)
+                    LabeledContent("Model", value: snapshot.model)
+                    LabeledContent("Transport", value: snapshot.transportDescription)
+                    LabeledContent("Result", value: snapshot.result)
+                }
+
+                promptBlock(title: "System", text: snapshot.systemPrompt)
+                promptBlock(title: "User", text: snapshot.userPrompt)
+            } else {
+                Text("No prompt captured yet")
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(18)
+        .background(.background, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(.separator.opacity(0.7), lineWidth: 1)
+        }
+    }
+
+    private func promptBlock(title: String, text: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            ScrollView {
+                Text(text.isEmpty ? "Empty" : text)
+                    .font(.system(.caption, design: .monospaced))
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(10)
+            }
+            .frame(minHeight: 80, maxHeight: 180)
+            .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
         }
     }
 }

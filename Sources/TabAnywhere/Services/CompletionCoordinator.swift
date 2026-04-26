@@ -23,6 +23,7 @@ final class CompletionCoordinator: ObservableObject {
     @Published private(set) var isSearchingModels = false
     @Published private(set) var isDownloadingModel = false
     @Published private(set) var modelDownloadProgress = 0.0
+    @Published private(set) var lastPromptSnapshot: PromptInspectionSnapshot?
     @Published private(set) var acceptanceHotKey: AcceptanceHotKey
     @Published private(set) var suggestionStyle: SuggestionPresentationStyle
 
@@ -160,6 +161,12 @@ final class CompletionCoordinator: ObservableObject {
             "\(context.appName) - \($0) (\(context.role))"
         } ?? "\(context.appName) (\(context.role))"
 
+        guard context.suffix.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            recordSkippedPrompt(for: context, result: "Skipped: text exists after cursor")
+            clearSuggestion(reason: "No suggestion when text exists after cursor")
+            return
+        }
+
         guard isEnabled else {
             clearSuggestion(reason: "No suggestion for current context")
             return
@@ -181,6 +188,13 @@ final class CompletionCoordinator: ObservableObject {
 
             do {
                 let provider = self.makeCompletionProvider()
+                let promptSnapshot = self.makePromptSnapshot(for: context)
+                await MainActor.run {
+                    guard self.generationRequestID == requestID, !Task.isCancelled else {
+                        return
+                    }
+                    self.lastPromptSnapshot = promptSnapshot
+                }
                 let suggestion = try await provider.suggestion(for: context)
 
                 await MainActor.run {
@@ -189,10 +203,12 @@ final class CompletionCoordinator: ObservableObject {
                     }
 
                     guard let suggestion, !suggestion.text.isEmpty else {
+                        self.lastPromptSnapshot = promptSnapshot.withResult("No suggestion")
                         self.clearSuggestion(reason: "No suggestion for current context")
                         return
                     }
 
+                    self.lastPromptSnapshot = promptSnapshot.withResult("Suggested: \(suggestion.text)")
                     self.activeContext = context
                     self.activeSuggestion = suggestion
                     self.activeSuggestionText = suggestion.text
@@ -213,6 +229,7 @@ final class CompletionCoordinator: ObservableObject {
 
                     let reason = "Provider unavailable: \(error.localizedDescription)"
                     self.modelStatusMessage = reason
+                    self.lastPromptSnapshot = self.lastPromptSnapshot?.withResult(reason)
                     self.clearSuggestion(reason: reason)
                     return
                 }
@@ -497,6 +514,48 @@ final class CompletionCoordinator: ObservableObject {
         recentEvents = Array(recentEvents.prefix(8))
     }
 
+    private func makePromptSnapshot(for context: CompletionContext) -> PromptInspectionSnapshot {
+        let payload: CompletionPromptPayload
+        switch selectedProviderKind {
+        case .mock:
+            payload = CompletionPromptPayload(systemPrompt: "Mock provider", userPrompt: "Mock provider does not send a model prompt.")
+        case .localLlama, .huggingFaceRouter, .gemini, .openAICompatible:
+            let provider = makeCompletionProvider() as? AnyLanguageModelCompletionProvider
+            payload = provider?.promptPayload(for: context) ?? CompletionPromptBuilder().payload(for: context)
+        }
+
+        return PromptInspectionSnapshot(
+            provider: providerDescription,
+            model: selectedModelDescription,
+            systemPrompt: payload.systemPrompt,
+            userPrompt: payload.userPrompt,
+            transportDescription: promptTransportDescription,
+            createdAt: Date(),
+            result: "Pending"
+        )
+    }
+
+    private func recordSkippedPrompt(for context: CompletionContext, result: String) {
+        var snapshot = makePromptSnapshot(for: context)
+        snapshot = snapshot.withResult(result)
+        lastPromptSnapshot = snapshot
+    }
+
+    private var promptTransportDescription: String {
+        switch selectedProviderKind {
+        case .mock:
+            return "No model transport"
+        case .localLlama:
+            return "OpenAI-compatible chat completion via local llama-server --jinja at http://127.0.0.1:18080/v1"
+        case .huggingFaceRouter:
+            return "OpenAI-compatible chat completion via Hugging Face Router"
+        case .gemini:
+            return "Gemini API via AnyLanguageModel"
+        case .openAICompatible:
+            return "OpenAI-compatible chat completion via \(cloudBaseURL)"
+        }
+    }
+
     private func makeCompletionProvider() -> CompletionProviding {
         switch selectedProviderKind {
         case .mock:
@@ -565,7 +624,7 @@ final class CompletionCoordinator: ObservableObject {
     }
 }
 
-private extension DateFormatter {
+extension DateFormatter {
     static let tabAnywhereTime: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm:ss"

@@ -18,13 +18,14 @@ final class AnyLanguageModelCompletionProvider: CompletionProviding {
         self.configuration = configuration
     }
 
+    func promptPayload(for context: CompletionContext) -> CompletionPromptPayload {
+        promptBuilder.payload(for: context)
+    }
+
     func suggestion(for context: CompletionContext) async throws -> CompletionSuggestion? {
         let model = try await makeModel()
-        let shouldUseSystemInstructions = configuration.kind != .localLlama
-        let session = shouldUseSystemInstructions
-            ? LanguageModelSession(model: model, instructions: promptBuilder.instructions)
-            : LanguageModelSession(model: model)
-        let prompt = promptBuilder.prompt(for: context, includeInstructions: !shouldUseSystemInstructions)
+        let session = LanguageModelSession(model: model, instructions: promptBuilder.instructions)
+        let prompt = promptBuilder.prompt(for: context)
         let response = try await session.respond(to: prompt, options: generationOptions())
 
         guard let text = promptBuilder.validatedSuggestionText(response.content, for: context) else {
