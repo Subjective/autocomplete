@@ -11,6 +11,7 @@ struct ContentView: View {
                 Section("Status") {
                     Label("MVP Loop", systemImage: "text.cursor")
                     Label("Permissions", systemImage: coordinator.hasAccessibilityPermission ? "checkmark.circle" : "exclamationmark.triangle")
+                    Label("Screen Context", systemImage: coordinator.hasScreenRecordingPermission ? "camera.viewfinder" : "camera.viewfinder")
                     Label(coordinator.providerDescription, systemImage: "cpu")
                 }
 
@@ -67,6 +68,7 @@ struct ContentView: View {
             LabeledContent("Suggestion style", value: coordinator.suggestionStyleDescription)
             LabeledContent("Provider", value: coordinator.providerDescription)
             LabeledContent("Model", value: coordinator.selectedModelDescription)
+            LabeledContent("Screen context", value: coordinator.screenContextStatusMessage)
             LabeledContent("Active suggestion", value: coordinator.activeSuggestionText.isEmpty ? "None" : coordinator.activeSuggestionText)
 
             HStack {
@@ -86,6 +88,26 @@ struct ContentView: View {
                     coordinator.refreshFocusedContextNow()
                 } label: {
                     Label("Inspect Focus", systemImage: "scope")
+                }
+            }
+
+            HStack {
+                Toggle("Screenshot Context", isOn: Binding(
+                    get: { coordinator.screenshotContextEnabled },
+                    set: { coordinator.setScreenshotContextEnabled($0) }
+                ))
+                .toggleStyle(.switch)
+
+                Button {
+                    coordinator.requestScreenRecordingPermission()
+                } label: {
+                    Label("Request Screen Recording", systemImage: "camera.viewfinder")
+                }
+
+                Button {
+                    coordinator.openScreenRecordingSettings()
+                } label: {
+                    Label("Screen Settings", systemImage: "gearshape")
                 }
             }
         }
@@ -204,6 +226,7 @@ struct ContentView: View {
                     LabeledContent("Result", value: snapshot.result)
                 }
 
+                screenContextPreview(for: snapshot)
                 promptBlock(title: "System", text: snapshot.systemPrompt)
                 promptBlock(title: "User", text: snapshot.userPrompt)
             } else {
@@ -216,6 +239,41 @@ struct ContentView: View {
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(.separator.opacity(0.7), lineWidth: 1)
+        }
+    }
+
+    @ViewBuilder
+    private func screenContextPreview(for snapshot: PromptInspectionSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Screen")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            if let screenContext = snapshot.screenContext,
+               let nsImage = NSImage(data: screenContext.imageData) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Image(nsImage: nsImage)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: .infinity)
+                        .frame(maxHeight: 320)
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .stroke(.separator.opacity(0.7), lineWidth: 1)
+                        }
+
+                    Text(screenContext.promptDescription)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+            } else {
+                Text(snapshot.screenContextStatus)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
         }
     }
 

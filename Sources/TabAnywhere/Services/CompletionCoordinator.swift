@@ -18,6 +18,9 @@ final class CompletionCoordinator: ObservableObject {
     @Published var cloudBaseURL: String
     @Published var cloudAPIKey: String
     @Published var cloudModelID: String
+    @Published var screenshotContextEnabled: Bool
+    @Published private(set) var hasScreenRecordingPermission = false
+    @Published private(set) var screenContextStatusMessage = "Screenshot context not checked"
     @Published private(set) var modelSearchResults: [ModelSearchResult] = []
     @Published private(set) var modelStatusMessage = "Mock provider selected"
     @Published private(set) var isSearchingModels = false
@@ -33,6 +36,7 @@ final class CompletionCoordinator: ObservableObject {
     private let insertion = TextInsertionService()
     private let hotKeyManager = HotKeyManager()
     private let suggestionWindow = SuggestionWindowController()
+    private let screenCapture = ScreenCaptureContextService()
 
     private var globalKeyMonitor: Any?
     private var localKeyMonitor: Any?
@@ -86,7 +90,9 @@ final class CompletionCoordinator: ObservableObject {
         cloudBaseURL = UserDefaults.standard.string(forKey: "CloudBaseURL") ?? "https://router.huggingface.co/v1"
         cloudAPIKey = UserDefaults.standard.string(forKey: "CloudAPIKey") ?? ""
         cloudModelID = UserDefaults.standard.string(forKey: "CloudModelID") ?? CompletionProviderKind.huggingFaceRouter.defaultCloudModelID ?? ""
+        screenshotContextEnabled = UserDefaults.standard.object(forKey: "ScreenshotContextEnabled") as? Bool ?? false
         updateModelStatus()
+        refreshScreenRecordingPermissionState()
     }
 
     deinit {
@@ -134,8 +140,18 @@ final class CompletionCoordinator: ObservableObject {
         log("Requested Accessibility permission")
     }
 
+    func requestScreenRecordingPermission() {
+        _ = screenCapture.requestScreenRecordingPermission()
+        refreshScreenRecordingPermissionState()
+        log("Requested Screen Recording permission")
+    }
+
     func openAccessibilitySettings() {
         accessibility.openAccessibilitySettings()
+    }
+
+    func openScreenRecordingSettings() {
+        screenCapture.openScreenRecordingSettings()
     }
 
     func refreshPermissionState() {
@@ -143,6 +159,19 @@ final class CompletionCoordinator: ObservableObject {
         statusMessage = hasAccessibilityPermission
             ? "Running. Type in TextEdit, this window, Safari, or Chrome."
             : "Accessibility permission is required to inspect fields and accept suggestions."
+    }
+
+    func refreshScreenRecordingPermissionState() {
+        guard screenshotContextEnabled else {
+            hasScreenRecordingPermission = screenCapture.isScreenRecordingAllowed
+            screenContextStatusMessage = "Screenshot context disabled"
+            return
+        }
+
+        hasScreenRecordingPermission = screenCapture.isScreenRecordingAllowed
+        screenContextStatusMessage = hasScreenRecordingPermission
+            ? "Screenshot context ready"
+            : "Screen Recording permission is needed for screenshot context"
     }
 
     func refreshFocusedContextNow() {
@@ -184,15 +213,16 @@ final class CompletionCoordinator: ObservableObject {
             }
 
             do {
+                let requestContext = await self.contextByAddingScreenContext(to: context)
                 let provider = self.makeCompletionProvider()
-                let promptSnapshot = self.makePromptSnapshot(for: context)
+                let promptSnapshot = self.makePromptSnapshot(for: requestContext)
                 await MainActor.run {
                     guard self.generationRequestID == requestID, !Task.isCancelled else {
                         return
                     }
                     self.lastPromptSnapshot = promptSnapshot
                 }
-                let suggestions = try await provider.suggestions(for: context, maximumCount: self.maximumSuggestionCount)
+                let suggestions = try await provider.suggestions(for: requestContext, maximumCount: self.maximumSuggestionCount)
 
                 await MainActor.run {
                     guard self.generationRequestID == requestID, !Task.isCancelled else {
@@ -206,7 +236,7 @@ final class CompletionCoordinator: ObservableObject {
                     }
 
                     self.lastPromptSnapshot = promptSnapshot.withResult("Suggested: \(suggestions.map(\.text).joined(separator: " | "))")
-                    self.activeContext = context
+                    self.activeContext = requestContext
                     self.activeSuggestion = suggestion
                     self.activeSuggestions = suggestions
                     self.activeSuggestionText = suggestion.text
@@ -263,6 +293,18 @@ final class CompletionCoordinator: ObservableObject {
             clearSuggestion(reason: "Paused")
         } else {
             scheduleSuggestionRefresh(reason: "Resumed")
+        }
+    }
+
+    func setScreenshotContextEnabled(_ isEnabled: Bool) {
+        screenshotContextEnabled = isEnabled
+        UserDefaults.standard.set(isEnabled, forKey: "ScreenshotContextEnabled")
+        if isEnabled {
+            refreshScreenRecordingPermissionState()
+            scheduleSuggestionRefresh(reason: "Screenshot context enabled")
+        } else {
+            screenContextStatusMessage = "Screenshot context disabled"
+            scheduleSuggestionRefresh(reason: "Screenshot context disabled")
         }
     }
 
@@ -395,18 +437,30 @@ final class CompletionCoordinator: ObservableObject {
             }
 
             do {
-                let url = try await self.modelCatalog.downloadGGUF(
+                let details = try await self.modelCatalog.details(for: self.selectedModelID)
+                let mmprojFile = self.preferredMMProjFile(from: details.ggufFiles)
+                let filePaths = Array(Set(([self.selectedGGUFFile] + [mmprojFile?.path].compactMap { $0 })))
+
+                try await self.modelCatalog.downloadGGUFFiles(
                     modelID: self.selectedModelID,
-                    filePath: self.selectedGGUFFile
+                    filePaths: filePaths
                 ) { progress in
                     self.modelDownloadProgress = progress.fractionCompleted.isFinite ? progress.fractionCompleted : 0
                 }
+                let url = try self.modelCatalog.localFileURL(
+                    modelID: self.selectedModelID,
+                    filePath: self.selectedGGUFFile
+                )
 
                 await MainActor.run {
                     self.isDownloadingModel = false
                     self.modelDownloadProgress = 1
                     self.setLocalModelPath(url.path)
-                    self.modelStatusMessage = "Downloaded \(url.lastPathComponent)"
+                    if let mmprojFile {
+                        self.modelStatusMessage = "Downloaded \(url.lastPathComponent) with \(mmprojFile.name)"
+                    } else {
+                        self.modelStatusMessage = "Downloaded \(url.lastPathComponent)"
+                    }
                 }
             } catch {
                 await MainActor.run {
@@ -536,6 +590,8 @@ final class CompletionCoordinator: ObservableObject {
             systemPrompt: payload.systemPrompt,
             userPrompt: payload.userPrompt,
             transportDescription: promptTransportDescription,
+            screenContext: context.screenContext,
+            screenContextStatus: screenContextStatusMessage,
             createdAt: Date(),
             result: "Pending"
         )
@@ -572,7 +628,8 @@ final class CompletionCoordinator: ObservableObject {
                 localModelPath: localModelPath,
                 cloudBaseURL: selectedProviderKind == .huggingFaceRouter ? "https://router.huggingface.co/v1" : cloudBaseURL,
                 cloudAPIKey: cloudAPIKey,
-                cloudModelID: cloudModelID
+                cloudModelID: cloudModelID,
+                allowsScreenImageInput: screenImageInputAllowed(for: selectedProviderKind)
             )
 
             if cachedProviderConfiguration == configuration, let cachedAnyProvider {
@@ -607,7 +664,7 @@ final class CompletionCoordinator: ObservableObject {
         case .localLlama:
             modelStatusMessage = localModelPath.isEmpty
                 ? "Download or choose a GGUF model"
-                : "Local model ready: \(URL(fileURLWithPath: localModelPath).lastPathComponent)"
+                : localModelStatusDescription
         case .huggingFaceRouter:
             modelStatusMessage = cloudAPIKey.isEmpty
                 ? "Add a Hugging Face token to use the router"
@@ -623,10 +680,103 @@ final class CompletionCoordinator: ObservableObject {
         }
     }
 
+    private var localModelStatusDescription: String {
+        let name = URL(fileURLWithPath: localModelPath).lastPathComponent
+        if LlamaServerManager.multimodalProjectorPath(for: localModelPath) != nil {
+            return "Local model ready with screenshot projector: \(name)"
+        }
+
+        return "Local model ready, text-only until mmproj*.gguf is next to it: \(name)"
+    }
+
+    private func contextByAddingScreenContext(to context: CompletionContext) async -> CompletionContext {
+        let screenshotContextEnabled = await MainActor.run {
+            self.screenshotContextEnabled
+        }
+        guard screenshotContextEnabled else {
+            await MainActor.run {
+                self.screenContextStatusMessage = "Screenshot context disabled"
+            }
+            return context
+        }
+
+        let providerAllowsScreenImage = await MainActor.run {
+            self.screenImageInputAllowed(for: self.selectedProviderKind)
+        }
+        guard providerAllowsScreenImage else {
+            await MainActor.run {
+                self.screenContextStatusMessage = self.screenImageInputUnavailableReason(for: self.selectedProviderKind)
+            }
+            return context
+        }
+
+        guard screenCapture.isScreenRecordingAllowed else {
+            await MainActor.run {
+                self.hasScreenRecordingPermission = false
+                self.screenContextStatusMessage = "Screen Recording permission is needed for screenshot context"
+            }
+            return context
+        }
+
+        await MainActor.run {
+            self.hasScreenRecordingPermission = true
+            self.screenContextStatusMessage = "Capturing screenshot context..."
+        }
+
+        do {
+            let snapshot = try await screenCapture.captureSnapshot(near: context.caretBounds)
+            await MainActor.run {
+                self.screenContextStatusMessage = "Attached screenshot context: \(snapshot.pixelWidth)x\(snapshot.pixelHeight)"
+            }
+            return context.withScreenContext(snapshot)
+        } catch {
+            await MainActor.run {
+                self.screenContextStatusMessage = "Screenshot skipped: \(error.localizedDescription)"
+            }
+            return context
+        }
+    }
+
+    private func screenImageInputAllowed(for provider: CompletionProviderKind) -> Bool {
+        switch provider {
+        case .mock:
+            return false
+        case .gemini, .openAICompatible:
+            return true
+        case .huggingFaceRouter:
+            let model = cloudModelID.lowercased()
+            return model.contains("gemma-4") || model.contains("vision") || model.contains("-vl")
+        case .localLlama:
+            return LlamaServerManager.multimodalProjectorPath(for: localModelPath) != nil
+        }
+    }
+
+    private func screenImageInputUnavailableReason(for provider: CompletionProviderKind) -> String {
+        switch provider {
+        case .mock:
+            return "Mock provider does not accept screenshot images"
+        case .gemini, .openAICompatible:
+            return "Screenshot input is configured for this provider"
+        case .huggingFaceRouter:
+            return "Hugging Face Router screenshot input is enabled only for known vision model IDs"
+        case .localLlama:
+            return "Local screenshot input requires an mmproj*.gguf file next to the selected GGUF model"
+        }
+    }
+
     private func preferredGGUFFile(from files: [GGUFFile]) -> GGUFFile? {
-        files.first { $0.name.localizedCaseInsensitiveContains("q4") }
+        let modelFiles = files.filter { !$0.name.localizedCaseInsensitiveContains("mmproj") }
+        return modelFiles.first { $0.name.localizedCaseInsensitiveContains("q4") }
             ?? files.first { $0.name.localizedCaseInsensitiveContains("Q4") }
+            ?? modelFiles.first
             ?? files.first
+    }
+
+    private func preferredMMProjFile(from files: [GGUFFile]) -> GGUFFile? {
+        let mmprojFiles = files.filter { $0.name.localizedCaseInsensitiveContains("mmproj") }
+        return mmprojFiles.first { $0.name.localizedCaseInsensitiveContains("f16") }
+            ?? mmprojFiles.first { $0.name.localizedCaseInsensitiveContains("bf16") }
+            ?? mmprojFiles.first
     }
 }
 

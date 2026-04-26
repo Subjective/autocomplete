@@ -42,6 +42,7 @@ struct SettingsView: View {
 
             Section("Permissions") {
                 LabeledContent("Accessibility", value: coordinator.hasAccessibilityPermission ? "Allowed" : "Needed")
+                LabeledContent("Screen Recording", value: coordinator.hasScreenRecordingPermission ? "Allowed" : "Needed")
 
                 HStack {
                     Button("Request Permission") {
@@ -50,6 +51,21 @@ struct SettingsView: View {
 
                     Button("Open Privacy Settings") {
                         coordinator.openAccessibilitySettings()
+                    }
+                }
+
+                Toggle("Use screenshots as context", isOn: Binding(
+                    get: { coordinator.screenshotContextEnabled },
+                    set: { coordinator.setScreenshotContextEnabled($0) }
+                ))
+
+                HStack {
+                    Button("Request Screen Recording") {
+                        coordinator.requestScreenRecordingPermission()
+                    }
+
+                    Button("Open Screen Recording Settings") {
+                        coordinator.openScreenRecordingSettings()
                     }
                 }
             }

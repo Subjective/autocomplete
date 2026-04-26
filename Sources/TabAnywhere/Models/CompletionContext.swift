@@ -9,6 +9,7 @@ struct CompletionContext {
     let value: String
     let selectedRange: CFRange?
     let caretBounds: CGRect?
+    let screenContext: ScreenContextSnapshot?
 
     var caretUTF16Offset: Int {
         guard let selectedRange else {
@@ -64,6 +65,19 @@ struct CompletionContext {
             startUTF16Offset: start,
             endUTF16Offset: end,
             caretUTF16OffsetInWindow: caret - start
+        )
+    }
+
+    func withScreenContext(_ screenContext: ScreenContextSnapshot?) -> CompletionContext {
+        CompletionContext(
+            element: element,
+            appName: appName,
+            windowTitle: windowTitle,
+            role: role,
+            value: value,
+            selectedRange: selectedRange,
+            caretBounds: caretBounds,
+            screenContext: screenContext
         )
     }
 }

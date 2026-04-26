@@ -23,9 +23,14 @@ struct MenuBarContentView: View {
             coordinator.openAccessibilitySettings()
         }
 
+        Button("Screen Recording Settings") {
+            coordinator.openScreenRecordingSettings()
+        }
+
         Divider()
 
         Text(coordinator.hasAccessibilityPermission ? "Accessibility: allowed" : "Accessibility: needed")
+        Text(coordinator.hasScreenRecordingPermission ? "Screen Recording: allowed" : "Screen Recording: needed")
         Text("Hotkey: \(coordinator.acceptanceHotKeyDescription)")
     }
 }

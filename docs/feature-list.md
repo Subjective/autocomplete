@@ -18,7 +18,7 @@
 - [x] Request Accessibility permission
 - [x] Detect whether Accessibility permission is granted
 - [x] Deep-link user to macOS Privacy & Security settings
-- [ ] Request Screen Recording permission for screenshot memory
+- [x] Request Screen Recording permission for screenshot memory
 - [ ] Explain why each permission is needed
 - [ ] Add “test permissions” step in onboarding
 - [ ] Show active recording/context indicator when screenshot memory is enabled
@@ -74,8 +74,8 @@
 
 ## 6. Screenshot Memory
 
-- [ ] Implement ScreenCaptureKit capture pipeline
-- [ ] Capture active display or active window
+- [x] Implement ScreenCaptureKit capture pipeline
+- [x] Capture active display or active window
 - [ ] Capture on fixed interval
 - [ ] Capture on event triggers: app switch, focus change, click, reply/compose transition
 - [ ] Add screenshot sampling rate controls
@@ -126,7 +126,7 @@
 - [x] Include prefix/suffix
 - [x] Include selected text
 - [ ] Include recent edit/action history
-- [ ] Include retrieved scene memory
+- [x] Include retrieved scene memory
 - [ ] Include confidence/uncertainty signals
 - [x] Debounce requests during typing
 - [x] Cancel stale requests when user continues typing
@@ -153,7 +153,7 @@
 ## 11. Prompting / Model Interface
 
 - [x] Define prompt format for unified text edit predictions
-- [ ] Define prompt format for screenshot-aware completions
+- [x] Define prompt format for screenshot-aware completions
 - [x] Define output schema
 - [x] Support plain inline continuation
 - [x] Support no-suggestion output
@@ -215,7 +215,7 @@
 ## 15. Privacy & Security
 
 - [x] Local-first default
-- [ ] Explicit opt-in for screenshot memory
+- [x] Explicit opt-in for screenshot memory
 - [ ] Visible capture indicator
 - [ ] App denylist
 - [ ] Domain denylist for browsers

@@ -34,21 +34,33 @@ struct ModelCatalogService {
         filePath: String,
         progressHandler: @escaping @MainActor @Sendable (Progress) -> Void
     ) async throws -> URL {
+        try await downloadGGUFFiles(
+            modelID: modelID,
+            filePaths: [filePath],
+            progressHandler: progressHandler
+        )
+        return try localFileURL(modelID: modelID, filePath: filePath)
+    }
+
+    func downloadGGUFFiles(
+        modelID: String,
+        filePaths: [String],
+        progressHandler: @escaping @MainActor @Sendable (Progress) -> Void
+    ) async throws {
         guard let repo = Repo.ID(rawValue: modelID) else {
             throw ModelCatalogError.invalidModelID(modelID)
         }
 
         let destination = try modelDirectory(for: modelID)
-        return try await client.downloadSnapshot(
+        _ = try await client.downloadSnapshot(
             of: repo,
             kind: .model,
             to: destination,
             revision: "main",
-            matching: [filePath],
+            matching: filePaths,
             maxConcurrentDownloads: 2,
             progressHandler: progressHandler
         )
-        .appendingPathComponent(filePath)
     }
 
     func localFileURL(modelID: String, filePath: String) throws -> URL {

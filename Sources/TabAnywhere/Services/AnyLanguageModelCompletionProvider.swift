@@ -7,6 +7,7 @@ struct AnyLanguageModelProviderConfiguration: Equatable {
     let cloudBaseURL: String
     let cloudAPIKey: String
     let cloudModelID: String
+    let allowsScreenImageInput: Bool
 }
 
 final class AnyLanguageModelCompletionProvider: CompletionProviding {
@@ -26,7 +27,11 @@ final class AnyLanguageModelCompletionProvider: CompletionProviding {
             )
         }
 
-        return editPromptBuilder.payload(for: context, window: window)
+        return editPromptBuilder.payload(
+            for: context,
+            window: window,
+            includeScreenImage: shouldAttachScreenImage(for: context)
+        )
     }
 
     func suggestions(for context: CompletionContext, maximumCount: Int) async throws -> [CompletionSuggestion] {
@@ -36,11 +41,39 @@ final class AnyLanguageModelCompletionProvider: CompletionProviding {
 
         let model = try await makeModel()
         let boundedMaximumCount = min(max(maximumCount, 1), 3)
-        let payload = editPromptBuilder.payload(for: context, window: window, maximumSuggestions: boundedMaximumCount)
+        let includeScreenImage = shouldAttachScreenImage(for: context)
+        let payload = editPromptBuilder.payload(
+            for: context,
+            window: window,
+            maximumSuggestions: boundedMaximumCount,
+            includeScreenImage: includeScreenImage
+        )
         let session = LanguageModelSession(model: model, instructions: payload.systemPrompt)
-        let response = try await session.respond(to: payload.userPrompt, options: generationOptions(maximumResponseTokens: 384))
+        let responseContent: String
+        do {
+            if includeScreenImage, let screenContext = context.screenContext {
+                let image = Transcript.ImageSegment(
+                    data: screenContext.imageData,
+                    mimeType: screenContext.mimeType
+                )
+                let response = try await session.respond(
+                    to: payload.userPrompt,
+                    image: image,
+                    options: generationOptions(maximumResponseTokens: 384)
+                )
+                responseContent = response.content
+            } else {
+                let response = try await session.respond(
+                    to: payload.userPrompt,
+                    options: generationOptions(maximumResponseTokens: 384)
+                )
+                responseContent = response.content
+            }
+        } catch {
+            throw AnyLanguageModelProviderError.requestFailed(String(describing: error))
+        }
         let predictions = editPromptBuilder.predictions(
-            from: response.content,
+            from: responseContent,
             for: window,
             maximumSuggestions: boundedMaximumCount
         )
@@ -114,6 +147,10 @@ final class AnyLanguageModelCompletionProvider: CompletionProviding {
         return model
     }
 
+    private func shouldAttachScreenImage(for context: CompletionContext) -> Bool {
+        configuration.allowsScreenImageInput && context.screenContext != nil
+    }
+
     private func generationOptions(maximumResponseTokens: Int) -> GenerationOptions {
         var options = GenerationOptions(temperature: 0.2, maximumResponseTokens: maximumResponseTokens)
 
@@ -138,6 +175,7 @@ enum AnyLanguageModelProviderError: LocalizedError {
     case missingLocalModel
     case missingCloudConfiguration
     case unsupportedProvider
+    case requestFailed(String)
 
     var errorDescription: String? {
         switch self {
@@ -147,6 +185,8 @@ enum AnyLanguageModelProviderError: LocalizedError {
             "Cloud provider configuration is missing."
         case .unsupportedProvider:
             "This provider is not backed by AnyLanguageModel."
+        case .requestFailed(let detail):
+            "Model request failed: \(detail)"
         }
     }
 }

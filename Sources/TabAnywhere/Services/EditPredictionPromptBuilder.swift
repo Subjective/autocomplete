@@ -8,33 +8,51 @@ struct EditPredictionPromptBuilder {
         """
         You are TabAnywhere Edit Predictor.
 
-        Predict the user's next small edit by rewriting the provided editable text window.
+        Predict the user's next likely edit by rewriting the provided editable text window.
 
         Return only the rewritten editable text window.
         Include exactly one <|caret|> marker.
 
         Rules:
         - Preserve unchanged text exactly.
-        - Make only a small, likely edit near the caret.
+        - Make a likely edit near the caret.
+        - Prefer a small edit when the user's intent is only weakly implied.
         - You may fix typos, spelling, punctuation, or incomplete words.
-        - Prefer completing the current thought only when strongly implied.
+        - If the editable text is empty or the caret is at the start of a reply/comment, and visible screen context clearly shows what is being answered, you may write a concise complete reply.
+        - Use facts, names, dates, and commitments that are explicitly visible in the editable text or attached screenshot.
+        - Do not invent facts, names, dates, links, commitments, or personal details that are not grounded in the editable text or attached screenshot.
+        - For screenshot-grounded replies, include only the details needed to answer naturally.
         - Preserve tone, language, formatting, and indentation.
-        - Use app, window, field, and visual context only to disambiguate.
-        - Do not invent specific facts, names, dates, links, commitments, or personal details.
-        - Do not rely on sensitive personal information inferred from screenshots.
+        - Use app, window, field, and visual context to infer reply intent when the evidence is strong.
+        - Do not expose sensitive personal information unless it is necessary to answer the visible request.
         - If no useful edit is likely, return the editable text unchanged.
         - Do not include Markdown, labels, quotes, or explanations.
         """
     }
 
-    func payload(for context: CompletionContext, window: EditableTextWindow, maximumSuggestions: Int = 1) -> CompletionPromptPayload {
+    func payload(
+        for context: CompletionContext,
+        window: EditableTextWindow,
+        maximumSuggestions: Int = 1,
+        includeScreenImage: Bool = false
+    ) -> CompletionPromptPayload {
         CompletionPromptPayload(
             systemPrompt: instructions(forMaximumSuggestions: maximumSuggestions),
-            userPrompt: prompt(for: context, window: window, maximumSuggestions: maximumSuggestions)
+            userPrompt: prompt(
+                for: context,
+                window: window,
+                maximumSuggestions: maximumSuggestions,
+                includeScreenImage: includeScreenImage
+            )
         )
     }
 
-    func prompt(for context: CompletionContext, window: EditableTextWindow, maximumSuggestions: Int = 1) -> String {
+    func prompt(
+        for context: CompletionContext,
+        window: EditableTextWindow,
+        maximumSuggestions: Int = 1,
+        includeScreenImage: Bool = false
+    ) -> String {
         let candidateInstruction = maximumSuggestions > 1
             ? "Candidate count: up to \(maximumSuggestions). Put each candidate between <|suggestion|> and <|end_suggestion|>."
             : "Candidate count: 1."
@@ -53,13 +71,32 @@ struct EditPredictionPromptBuilder {
 
         Recent visual context:
         <|visual_context|>
-        None
+        \(visualContextDescription(for: context, includeScreenImage: includeScreenImage))
         <|end_visual_context|>
 
         Editable text window:
         <|editable_text|>
         \(window.caretMarkerText)
         <|end_editable_text|>
+        """
+    }
+
+    private func visualContextDescription(for context: CompletionContext, includeScreenImage: Bool) -> String {
+        guard let screenContext = context.screenContext else {
+            return "None"
+        }
+
+        if includeScreenImage {
+            return """
+            A screenshot of the user's current screen is attached to this message.
+            Use it as grounded context for predicting the next edit. If the user is replying, commenting, or composing in response to visible content, the screenshot may justify a longer concise completion.
+            \(screenContext.promptDescription)
+            """
+        }
+
+        return """
+        Screenshot capture is available, but this provider is not configured for image input.
+        Do not infer visual details from the screen.
         """
     }
 

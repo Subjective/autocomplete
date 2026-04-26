@@ -54,7 +54,8 @@ final class AccessibilityService {
             role: role,
             value: value,
             selectedRange: selectedRange,
-            caretBounds: resolvedCaretBounds
+            caretBounds: resolvedCaretBounds,
+            screenContext: nil
         )
     }
 
