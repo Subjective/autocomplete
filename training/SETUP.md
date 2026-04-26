@@ -53,6 +53,19 @@ batch size, and QLoRA. A free T4 can be tight for a 4B model with 2048-token
 windows, but it is useful for proving the script and dataset. Colab Pro with
 L4/A100 is a better first real training run.
 
+Use Unsloth's Colab install path in a fresh runtime:
+
+```bash
+pip uninstall -y unsloth unsloth_zoo
+pip install --upgrade --no-cache-dir "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git"
+pip install --upgrade --no-cache-dir "git+https://github.com/unslothai/unsloth-zoo.git"
+pip install --upgrade --no-cache-dir datasets huggingface_hub pyyaml accelerate
+```
+
+If a run has already imported Torch, Transformers, TRL, or Unsloth before this
+install step, restart the Colab runtime after installation and rerun from the
+top. That avoids mixed CUDA/Torch extension state.
+
 Suggested first Colab settings:
 
 - `max_sequence_length: 2048`

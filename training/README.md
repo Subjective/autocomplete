@@ -62,11 +62,16 @@ or let `uv` install it:
 uv python install 3.12
 ```
 
-Google Colab can skip the repo venv and install directly in the notebook runtime:
+Google Colab can skip the repo venv and install directly in the notebook runtime.
+Use Unsloth's Colab install path instead of installing the loose `torch` and
+`unsloth` entries from `requirements-training.txt`; otherwise Colab can end up
+with an incompatible Torch/extension mix.
 
 ```bash
-pip install unsloth
-pip install -r training/requirements-training.txt
+pip uninstall -y unsloth unsloth_zoo
+pip install --upgrade --no-cache-dir "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git"
+pip install --upgrade --no-cache-dir "git+https://github.com/unslothai/unsloth-zoo.git"
+pip install --upgrade --no-cache-dir datasets huggingface_hub pyyaml accelerate
 ```
 
 For Colab or the VS Code Colab extension, use:

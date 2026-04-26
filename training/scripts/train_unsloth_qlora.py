@@ -9,6 +9,7 @@ app; it produces LoRA/merged artifacts under training/models.
 from __future__ import annotations
 
 import argparse
+import inspect
 import json
 from pathlib import Path
 from typing import Any
@@ -77,10 +78,10 @@ def main() -> int:
 
     config = load_config(args.config)
 
+    from unsloth import FastLanguageModel
     from datasets import Dataset
     from transformers import TrainingArguments
     from trl import SFTTrainer
-    from unsloth import FastLanguageModel
 
     prompt_config = config["prompt"]
     data_config = config["data"]
@@ -135,22 +136,28 @@ def main() -> int:
     metrics_dir = Path(output_config["metrics_dir"])
     metrics_dir.mkdir(parents=True, exist_ok=True)
 
-    training_args = TrainingArguments(
-        output_dir=str(metrics_dir),
-        per_device_train_batch_size=int(training_config["per_device_train_batch_size"]),
-        gradient_accumulation_steps=int(training_config["gradient_accumulation_steps"]),
-        learning_rate=float(training_config["learning_rate"]),
-        warmup_ratio=float(training_config["warmup_ratio"]),
-        num_train_epochs=float(training_config["epochs"]),
-        weight_decay=float(training_config["weight_decay"]),
-        lr_scheduler_type=training_config["lr_scheduler_type"],
-        logging_steps=int(training_config["logging_steps"]),
-        save_steps=int(training_config["save_steps"]),
-        eval_steps=int(training_config["eval_steps"]),
-        evaluation_strategy="steps" if eval_dataset is not None else "no",
-        seed=int(training_config["seed"]),
-        report_to="none",
+    evaluation_strategy_name = (
+        "eval_strategy"
+        if "eval_strategy" in inspect.signature(TrainingArguments).parameters
+        else "evaluation_strategy"
     )
+    training_args_kwargs = {
+        "output_dir": str(metrics_dir),
+        "per_device_train_batch_size": int(training_config["per_device_train_batch_size"]),
+        "gradient_accumulation_steps": int(training_config["gradient_accumulation_steps"]),
+        "learning_rate": float(training_config["learning_rate"]),
+        "warmup_ratio": float(training_config["warmup_ratio"]),
+        "num_train_epochs": float(training_config["epochs"]),
+        "weight_decay": float(training_config["weight_decay"]),
+        "lr_scheduler_type": training_config["lr_scheduler_type"],
+        "logging_steps": int(training_config["logging_steps"]),
+        "save_steps": int(training_config["save_steps"]),
+        "eval_steps": int(training_config["eval_steps"]),
+        evaluation_strategy_name: "steps" if eval_dataset is not None else "no",
+        "seed": int(training_config["seed"]),
+        "report_to": "none",
+    }
+    training_args = TrainingArguments(**training_args_kwargs)
 
     trainer = SFTTrainer(
         model=model,
