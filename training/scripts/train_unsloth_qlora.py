@@ -69,6 +69,18 @@ def build_dataset_records(path: Path, system_prompt: str, user_template: str) ->
     return records
 
 
+def filter_supported_kwargs(target: Any, kwargs: dict[str, Any]) -> dict[str, Any]:
+    signature = inspect.signature(target)
+    if any(parameter.kind == inspect.Parameter.VAR_KEYWORD for parameter in signature.parameters.values()):
+        return kwargs
+    return {key: value for key, value in kwargs.items() if key in signature.parameters}
+
+
+def strategy_argument_name(training_args_cls: Any) -> str:
+    parameters = inspect.signature(training_args_cls).parameters
+    return "eval_strategy" if "eval_strategy" in parameters else "evaluation_strategy"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=Path, default=Path("training/configs/sft_gemma_lora.yaml"))
@@ -80,8 +92,7 @@ def main() -> int:
 
     from unsloth import FastLanguageModel
     from datasets import Dataset
-    from transformers import TrainingArguments
-    from trl import SFTTrainer
+    from trl import SFTConfig, SFTTrainer
 
     prompt_config = config["prompt"]
     data_config = config["data"]
@@ -136,12 +147,7 @@ def main() -> int:
     metrics_dir = Path(output_config["metrics_dir"])
     metrics_dir.mkdir(parents=True, exist_ok=True)
 
-    evaluation_strategy_name = (
-        "eval_strategy"
-        if "eval_strategy" in inspect.signature(TrainingArguments).parameters
-        else "evaluation_strategy"
-    )
-    training_args_kwargs = {
+    sft_args_kwargs = {
         "output_dir": str(metrics_dir),
         "per_device_train_batch_size": int(training_config["per_device_train_batch_size"]),
         "gradient_accumulation_steps": int(training_config["gradient_accumulation_steps"]),
@@ -152,26 +158,36 @@ def main() -> int:
         "logging_steps": int(training_config["logging_steps"]),
         "save_steps": int(training_config["save_steps"]),
         "eval_steps": int(training_config["eval_steps"]),
-        evaluation_strategy_name: "steps" if eval_dataset is not None else "no",
+        strategy_argument_name(SFTConfig): "steps" if eval_dataset is not None else "no",
         "seed": int(training_config["seed"]),
         "report_to": "none",
+        "dataset_text_field": "text",
+        "max_length": max_sequence_length,
+        "max_seq_length": max_sequence_length,
+        "packing": bool(training_config["packing"]),
     }
     if "warmup_steps" in training_config:
-        training_args_kwargs["warmup_steps"] = int(training_config["warmup_steps"])
+        sft_args_kwargs["warmup_steps"] = int(training_config["warmup_steps"])
     else:
-        training_args_kwargs["warmup_ratio"] = float(training_config["warmup_ratio"])
-    training_args = TrainingArguments(**training_args_kwargs)
+        sft_args_kwargs["warmup_ratio"] = float(training_config["warmup_ratio"])
+    sft_args = SFTConfig(**filter_supported_kwargs(SFTConfig, sft_args_kwargs))
 
-    trainer = SFTTrainer(
-        model=model,
-        tokenizer=tokenizer,
-        train_dataset=train_dataset,
-        eval_dataset=eval_dataset,
-        dataset_text_field="text",
-        max_seq_length=max_sequence_length,
-        packing=bool(training_config["packing"]),
-        args=training_args,
-    )
+    trainer_kwargs = {
+        "model": model,
+        "args": sft_args,
+        "train_dataset": train_dataset,
+        "eval_dataset": eval_dataset,
+    }
+    trainer_parameters = inspect.signature(SFTTrainer).parameters
+    if "processing_class" in trainer_parameters:
+        trainer_kwargs["processing_class"] = tokenizer
+    elif "tokenizer" in trainer_parameters:
+        trainer_kwargs["tokenizer"] = tokenizer
+    for key in ["dataset_text_field", "max_seq_length", "packing"]:
+        if key in trainer_parameters:
+            trainer_kwargs[key] = sft_args_kwargs[key]
+
+    trainer = SFTTrainer(**filter_supported_kwargs(SFTTrainer, trainer_kwargs))
     trainer.train()
 
     adapter_dir = Path(output_config["adapter_dir"])
