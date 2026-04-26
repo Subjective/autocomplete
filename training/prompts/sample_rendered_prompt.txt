@@ -6,15 +6,17 @@ Candidate count: 1.
 
 Recent actions:
 <|recent_actions|>
-Typed: "Hi Maya, unfrotunately"
+Focused empty reply field
 <|end_recent_actions|>
 
 Recent visual context:
 <|visual_context|>
-None
+A screenshot of the user's current screen is attached to this message.
+Use it as grounded context for predicting the next edit. If the user is replying, commenting, or composing in response to visible content, the screenshot may justify a longer concise completion.
+Visible email from Maya asks: "Can you confirm whether Thursday at 2 PM works for the design review?"
 <|end_visual_context|>
 
 Editable text window:
 <|editable_text|>
-Hi Maya, unfrotunately I can't make it today<|caret|>
+<|caret|>
 <|end_editable_text|>

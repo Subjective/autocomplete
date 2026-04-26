@@ -2,6 +2,6 @@
   "name": "tabanywhere_eval_v001",
   "kind": "eval",
   "format": "jsonl",
-  "records": 10,
-  "description": "Frozen first-pass evals for parse validity, rewrite restraint, edit classification, and longer obvious completions."
+  "records": 12,
+  "description": "Frozen first-pass evals for parse validity, rewrite restraint, edit classification, longer obvious completions, and screenshot-grounded replies."
 }

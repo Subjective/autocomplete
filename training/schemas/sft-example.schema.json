@@ -11,6 +11,7 @@
       "enum": [
         "completion.short",
         "completion.long_obvious",
+        "completion.screen_grounded_reply",
         "edit.typo",
         "edit.grammar",
         "edit.phrase",
@@ -18,7 +19,8 @@
         "edit.suffix_aware",
         "noop.ambiguous",
         "noop.unsafe",
-        "noop.overeager"
+        "noop.overeager",
+        "noop.screen_not_configured"
       ]
     },
     "app_name": { "type": "string" },

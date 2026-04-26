@@ -2,8 +2,8 @@
   "name": "tabanywhere_seed_v001",
   "kind": "sft",
   "format": "jsonl",
-  "records": 16,
-  "description": "Initial curated examples for unified rewrite-based completion and edit prediction.",
+  "records": 18,
+  "description": "Initial curated examples for unified rewrite-based completion, edit prediction, and screenshot-grounded replies.",
   "categories": [
     "completion.short",
     "completion.long_obvious",
@@ -14,7 +14,9 @@
     "edit.suffix_aware",
     "noop.ambiguous",
     "noop.unsafe",
-    "noop.overeager"
+    "noop.overeager",
+    "completion.screen_grounded_reply",
+    "noop.screen_not_configured"
   ],
   "created_for": "TabAnywhere unified edit prediction v1"
 }
